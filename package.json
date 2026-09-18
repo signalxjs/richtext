@@ -1,6 +1,6 @@
 {
   "name": "sigx-richtext-monorepo",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Rich text for SignalX — a schema-driven mdast-shaped document model with pluggable formats (markdown, HTML), an incremental streaming engine, a renderer-neutral engine with a DOM view, and a block-tree editor for web and Lynx",
   "type": "module",

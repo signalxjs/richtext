@@ -1,6 +1,6 @@
 {
     "name": "@sigx/richtext",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "Rich text for SignalX — a schema-driven, mdast-shaped document model with pluggable formats, a renderer-neutral engine with a DOM view, and a block-tree editor for web and Lynx",
     "type": "module",
     "main": "./dist/index.js",

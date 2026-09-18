@@ -125,17 +125,18 @@ function main() {
         // exactly as a consuming app does — at the range the foundation package
         // declares, so a core bump (`sync:core` re-pins the peers) can never leave
         // this smoke importing the tarballs against an older runtime. The optional
-        // peer @sigx/runtime-dom is deliberately absent so the smoke test fails if
-        // a core entry ever imports it eagerly; the shiki package peers on it and
-        // on `shiki` (imported lazily), so its install is satisfied by the
-        // overrides below.
+        // peer @sigx/runtime-dom and the shiki package's `shiki` peer are
+        // deliberately absent: the install runs with --legacy-peer-deps, so unmet
+        // peers are simply not installed, and the import smoke then fails if any
+        // entry pulls one of them in eagerly instead of lazily.
         dependencies: {
             ...deps,
             '@sigx/reactivity': corePeers['@sigx/reactivity'],
             '@sigx/runtime-core': corePeers['@sigx/runtime-core'],
         },
         // The tarballs peer on each other at the published range; point those
-        // ranges at the tarballs so npm resolves the sibling from disk, not the registry.
+        // ranges at the tarballs so npm resolves the sibling from disk, not the
+        // registry (this is all `overrides` does — it installs no missing peer).
         overrides: { ...deps },
     };
     writeFileSync(join(appDir, 'package.json'), JSON.stringify(appPkg, null, 2));

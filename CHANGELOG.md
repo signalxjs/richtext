@@ -6,6 +6,28 @@ workspace shares one version line.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-18
+
+### Changed
+
+- **SignalX core retargeted to 1.0; the packages peer on it at `^1.0.0`** (#39,
+  #41). The `catalog:` block moves from `^0.15.0` to `^1.0.0`, and
+  `@sigx/richtext`, `@sigx/richtext-markdown`, `@sigx/richtext-html` and
+  `@sigx/richtext-shiki` now declare `@sigx/reactivity`, `@sigx/runtime-core`
+  and `@sigx/runtime-dom` as `peerDependencies: "^1.0.0"` — the app owns the
+  single copy of the runtime and any core 1.x satisfies (core rfc-1.0 §3).
+  Breaking for consumers still on core 0.15: upgrade core first. No source
+  change; the whole suite (2112 tests) and the playground e2e pass unchanged
+  on core 1.0.0.
+
+### Fixed
+
+- **`verify:pack` smoked the tarballs against the wrong core** (#39). The
+  scratch app's core peer range was hard-coded at `^0.15.0`, so the
+  pack-smoke would have installed a 0.15 runtime under 1.0-peered tarballs
+  with `--legacy-peer-deps`; it now derives the range from
+  `packages/richtext/package.json`.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added

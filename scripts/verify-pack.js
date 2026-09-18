@@ -108,6 +108,10 @@ function main() {
     }
 
     step('Create scratch app');
+    const corePeers = readJson(join(rootDir, 'packages/richtext/package.json')).peerDependencies;
+    for (const name of ['@sigx/reactivity', '@sigx/runtime-core']) {
+        if (!corePeers?.[name]) throw new Error(`packages/richtext/package.json declares no peer on ${name}`);
+    }
     const deps = Object.fromEntries(
         packed.map((p) => [p.name, `file:${p.tarball.replace(/\\/g, '/')}`])
     );
@@ -118,11 +122,18 @@ function main() {
         type: 'module',
         scripts: { smoke: 'node smoke.mjs' },
         // Only the REQUIRED peers: the scratch app owns the sigx runtime copy,
-        // exactly as a consuming app does. The optional peer @sigx/runtime-dom is
-        // deliberately absent so the smoke test fails if a core entry ever
-        // imports it eagerly; the shiki package peers on it and on `shiki`
-        // (imported lazily), so its install is satisfied by the overrides below.
-        dependencies: { ...deps, '@sigx/reactivity': '^0.15.0', '@sigx/runtime-core': '^0.15.0' },
+        // exactly as a consuming app does — at the range the foundation package
+        // declares, so a core bump (`sync:core` re-pins the peers) can never leave
+        // this smoke importing the tarballs against an older runtime. The optional
+        // peer @sigx/runtime-dom is deliberately absent so the smoke test fails if
+        // a core entry ever imports it eagerly; the shiki package peers on it and
+        // on `shiki` (imported lazily), so its install is satisfied by the
+        // overrides below.
+        dependencies: {
+            ...deps,
+            '@sigx/reactivity': corePeers['@sigx/reactivity'],
+            '@sigx/runtime-core': corePeers['@sigx/runtime-core'],
+        },
         // The tarballs peer on each other at the published range; point those
         // ranges at the tarballs so npm resolves the sibling from disk, not the registry.
         overrides: { ...deps },

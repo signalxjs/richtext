@@ -59,7 +59,7 @@
         "@sigx/richtext": "workspace:*",
         "@sigx/runtime-core": "catalog:",
         "@sigx/vite": "catalog:",
-        "@types/node": "^25.9.1",
+        "@types/node": "^26.6.2",
         "sigx": "catalog:",
         "typescript": "^7.0.2",
         "vite": "^8.0.3"

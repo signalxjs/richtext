@@ -9,7 +9,8 @@
  * match) means an active session whose query is the rest of the run;
  * anything else means no session. Whitespace, caret exits, a block change,
  * blur and a non-collapsed selection all close it for free, because they
- * all change the run.
+ * all change the run. A trigger char inside a literal mark (inline code)
+ * never opens a session: the host passes the block's spans with the text.
  *
  * `onQuery` may be async: results are tagged with an epoch and discarded when
  * a newer query (or a close) supersedes them. An optional per-trigger
@@ -18,7 +19,7 @@
 
 import type { Command, Dispatch } from '../commands.js';
 import type { commands } from '../registry.js';
-import type { InlineFlat } from '../inline-flat.js';
+import type { InlineFlat, InlineSpan } from '../inline-flat.js';
 import type { EditorState } from '../state.js';
 
 /** One entry in a trigger session's result list. */
@@ -96,8 +97,12 @@ export interface TriggerSession {
 }
 
 export interface TriggerSessionManager {
-    /** Feed the latest text of block `key`. A different key than the last sync closes any session. */
-    syncText(key: string, text: string): void;
+    /**
+     * Feed the latest text of block `key`, plus its mark spans when the host
+     * has them (they keep a trigger inside inline code from opening). A
+     * different key than the last sync closes any session.
+     */
+    syncText(key: string, text: string, spans?: readonly InlineSpan[]): void;
     /** Feed the collapsed caret offset in block `key`; `-1` = no collapsed caret. */
     syncCaret(key: string, caret: number): void;
     /** Close the active session (blur, selection made, escape). */
@@ -107,6 +112,12 @@ export interface TriggerSessionManager {
 
 export interface TriggerSessionManagerOptions {
     triggers: ReadonlyArray<{ plugin: string; spec: TriggerSpec }>;
+    /**
+     * Whether a mark type is literal (nothing is parsed inside it, e.g.
+     * `inlineCode`); a trigger char covered by such a span opens no session.
+     * The DOM host answers from the schema (`spec.inline.literal`).
+     */
+    isLiteral?(type: string): boolean;
     /** Fired whenever the session opens, updates (query/items), or closes. */
     onUpdate(session: TriggerSession | null): void;
 }
@@ -128,6 +139,7 @@ function matchTrigger(spec: TriggerSpec, run: string): number {
 export function createTriggerSessionManager(opts: TriggerSessionManagerOptions): TriggerSessionManager {
     let key: string | null = null;
     let text = '';
+    let spans: readonly InlineSpan[] = [];
     let caret = -1;
     let session: TriggerSession | null = null;
     /** Bumped on every query change/close; stale async results check it. */
@@ -217,6 +229,11 @@ export function createTriggerSessionManager(opts: TriggerSessionManagerOptions):
         let start = caret;
         while (start > 0 && !/\s/.test(text[start - 1])) start--;
         const run = text.slice(start, caret);
+        const isLiteral = opts.isLiteral;
+        if (isLiteral && start < caret && spans.some((s) => s.start <= start && start < s.end && isLiteral(s.type))) {
+            close();
+            return;
+        }
 
         for (const { plugin, spec } of opts.triggers) {
             const prefixLen = matchTrigger(spec, run);
@@ -248,14 +265,16 @@ export function createTriggerSessionManager(opts: TriggerSessionManagerOptions):
         if (key === next) return;
         key = next;
         text = '';
+        spans = [];
         caret = -1;
         close();
     };
 
     return {
-        syncText: (k, t) => {
+        syncText: (k, t, s) => {
             switchTo(k);
             text = t ?? '';
+            spans = s ?? [];
             evaluate();
         },
         syncCaret: (k, c) => {

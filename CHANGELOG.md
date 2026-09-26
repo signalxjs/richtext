@@ -6,6 +6,17 @@ workspace shares one version line.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A trigger character inside inline code opened a suggestion session**
+  (#17). Typing after `` `@` `` opened the mention popup, because the session
+  manager only looked at the text before the caret. `createTriggerSessionManager`
+  takes a new `isLiteral(type)` option and `syncText(key, text, spans?)` takes
+  the block's spans; a trigger char covered by a literal mark opens no session.
+  `RichTextEditor` passes both (literal = `spec.inline.literal` in the schema).
+  Other hosts (the Lynx editor) should pass `flat.spans` the same way; without
+  spans the behaviour is unchanged.
+
 ## [0.4.0] - 2026-09-18
 
 ### Changed

@@ -261,6 +261,20 @@ describe('RichTextEditor', () => {
         expect(m.controller.editor.flatOf('b-0')!.text).toBe(`hi ${ATOM_CHAR} `);
     });
 
+    it('mentions: an @ inside inline code opens no suggestions (#17)', async () => {
+        const onQuery = vi.fn(() => [{ id: 'u1', label: 'Andy' }]);
+        const plugin = createDomMentionPlugin({ onQuery, formats: { markdown: mentionMarkdown } });
+        const m = await mount({ defaultSource: 'see `@`', plugins: [plugin] });
+        const host = m.host('b-0');
+        host.focus();
+        document.getSelection()!.collapse(host, host.childNodes.length);
+        insertText({ host } as never, 'a');
+        await tick();
+        expect(m.controller.editor.flatOf('b-0')!.text).toBe('see @a');
+        expect(m.root.querySelector('[data-scope=richtext-suggest]')).toBeNull();
+        expect(onQuery).not.toHaveBeenCalled();
+    });
+
     it('readOnly disables editing and hides handles', async () => {
         const m = await mount({ defaultSource: 'x', readOnly: true });
         expect(m.host('b-0').getAttribute('contenteditable')).toBe('false');

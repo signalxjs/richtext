@@ -10,8 +10,9 @@
 import type { BlockContent, List, ListItem, PhrasingContent, Table, TableCell, TableRow } from '../ast/index.js';
 import type { InlineFlat } from './inline-flat.js';
 import { addMark, removeMark, sliceFlat, toInline } from './inline-flat.js';
-import { chain, deleteRange, overRange, entryOf, firstEditable, inlineFlat, insertAtom, insertBlockAfter, joinTextBackward, keyAt, lengthOf, meta, selectedBlockKeys, setBlockType, splitTextBlock, textSel, toggleMark, type Command, type CommandContext, type Dispatch } from './commands.js';
-import type { BlockEntry, EditorSelection, EditorState } from './state.js';
+import { chain, crossBlock, deleteRange, overRange, remapByEditableOrder, entryOf, firstEditable, inlineFlat, insertAtom, insertBlockAfter, joinTextBackward, keyAt, lengthOf, meta, selectedBlockKeys, setBlockType, splitTextBlock, textSel, toggleMark, type Command, type CommandContext, type Dispatch } from './commands.js';
+import type { BlockEntry, EditorSelection, EditorState, TextSelection } from './state.js';
+import { textSegments } from './range.js';
 import { blockSelection, isCrossBlock, selectionRange, textSelection } from './state.js';
 import type { Step } from './steps.js';
 
@@ -60,13 +61,21 @@ export function listKindOf(list: List, item: ListItem): ListKind {
 export const setLink =
     (url: string, title?: string): Command =>
     (state, dispatch, ctx) => {
+        const attrs: Record<string, string> = { url };
+        if (title) attrs.title = title;
+        if (crossBlock(state)) {
+            // Over a range: every text segment links to `url`.
+            const segments = textSegments(state, state.selection as TextSelection, ctx);
+            if (!segments.length) return false;
+            const steps: Step[] = segments.map((s) => ({ type: 'setInline', key: s.key, flat: addMark(removeMark(s.flat, 'link', s.from, s.to), 'link', s.from, s.to, attrs) }));
+            dispatch?.({ steps, selection: state.selection, meta: meta() });
+            return true;
+        }
         const sel = textSel(state);
         if (!sel) return false;
         const { from, to } = selectionRange(sel);
         const flat = inlineFlat(state, sel.anchor.key, ctx);
         if (!flat) return false;
-        const attrs: Record<string, string> = { url };
-        if (title) attrs.title = title;
         if (from === to) {
             // No selection: insert the url as its own linked text, as an autolink (`<url>`).
             const slice: InlineFlat = { text: url, spans: [{ start: 0, end: url.length, type: 'link', attrs: { ...attrs, autolink: 'true' } }] };
@@ -79,6 +88,12 @@ export const setLink =
     };
 
 export const unsetLink: Command = (state, dispatch, ctx) => {
+    if (crossBlock(state)) {
+        const linked = textSegments(state, state.selection as TextSelection, ctx).filter((s) => s.flat.spans.some((sp) => sp.type === 'link' && sp.start < s.to && sp.end > s.from));
+        if (!linked.length) return false;
+        dispatch?.({ steps: linked.map((s) => ({ type: 'setInline', key: s.key, flat: removeMark(s.flat, 'link', s.from, s.to) })), selection: state.selection, meta: meta() });
+        return true;
+    }
     const sel = textSel(state);
     if (!sel) return false;
     const flat = inlineFlat(state, sel.anchor.key, ctx);
@@ -231,12 +246,14 @@ export const joinBackward: Command = chain(deleteRange, joinBackwardInList, lift
 export const toggleList =
     (kind: ListKind): Command =>
     (state, dispatch, ctx) => {
-        // Over a cross-block range: not yet (range formatting, #57).
-        if (isCrossBlock(state.selection)) return false;
         const keys = selectedBlockKeys(state);
         if (!keys.length) return false;
         const first = entryOf(state, keys[0]);
         if (!first) return false;
+        const sel = state.selection;
+        // Over a range the ends may move to other blocks: they follow editable order.
+        const range = sel && sel.mode === 'text' && isCrossBlock(sel) ? sel : null;
+        if (range && first.parent.type === 'list') return toggleItemsOfList(state, dispatch, ctx, kind, keys, range);
         const lc = listContext(state, keys[0]);
         if (lc) {
             const list = lc.list.node as List;
@@ -279,11 +296,12 @@ export const toggleList =
             for (let i = run.length - 1; i >= 0; i--) steps.push({ type: 'removeBlock', parentKey, index: run[i].index });
             steps.push({ type: 'insertBlock', parentKey, index: run[0].index, node: list });
         }
-        const sel = state.selection;
         const firstIndex = entries[0].index;
         const listKey = keyAt(parentKey, runs[0][0].index);
         let selection: EditorSelection;
-        if (sel && sel.mode === 'text') {
+        if (range) {
+            selection = remapByEditableOrder(state, range, steps, ctx);
+        } else if (sel && sel.mode === 'text') {
             selection = { mode: 'text', anchor: { key: `${listKey}.0.0`, offset: sel.anchor.offset }, head: { key: `${listKey}.0.0`, offset: sel.head.offset } };
         } else {
             // Every run of n blocks collapses into one list.
@@ -293,6 +311,37 @@ export const toggleList =
         dispatch?.({ steps, selection, meta: meta() });
         return true;
     };
+
+/**
+ * A range whose sibling run is items of one list: a different kind changes
+ * the whole list's kind; the same kind unwraps the run's items (their blocks
+ * take the items' place, the list splits around them).
+ */
+function toggleItemsOfList(state: EditorState, dispatch: Dispatch | undefined, ctx: CommandContext, kind: ListKind, keys: readonly string[], range: TextSelection): boolean {
+    const first = entryOf(state, keys[0])!;
+    const listEntry = entryOf(state, first.parentKey!)!;
+    const list = listEntry.node as List;
+    if (listKindOf(list, first.node as ListItem) !== kind) {
+        const steps: Step[] = [{ type: 'setAttrs', key: list.key!, attrs: { ordered: kind === 'ordered', start: kind === 'ordered' ? 1 : null } }];
+        for (const item of list.children) steps.push({ type: 'setAttrs', key: item.key!, attrs: { checked: kind === 'task' ? (item.checked ?? false) : undefined } });
+        dispatch?.({ steps, selection: range, meta: meta() });
+        return true;
+    }
+    const start = first.index;
+    const end = start + keys.length;
+    const before = list.children.slice(0, start);
+    const lifted = list.children.slice(start, end).flatMap((item) => item.children as BlockContent[]);
+    const after = list.children.slice(end);
+    const at = listEntry.index;
+    const steps: Step[] = [];
+    if (before.length) steps.push({ type: 'replaceBlock', key: list.key!, node: { ...list, children: before } });
+    else steps.push({ type: 'removeBlock', parentKey: listEntry.parentKey, index: at });
+    let insertAt = before.length ? at + 1 : at;
+    for (const node of lifted) steps.push({ type: 'insertBlock', parentKey: listEntry.parentKey, index: insertAt++, node });
+    if (after.length) steps.push({ type: 'insertBlock', parentKey: listEntry.parentKey, index: insertAt, node: { ...list, children: after } });
+    dispatch?.({ steps, selection: remapByEditableOrder(state, range, steps, ctx), meta: meta() });
+    return true;
+}
 
 /** Tab in a list item: nest it under the previous item. */
 export const indentListItem: Command = (state, dispatch, ctx) => {
@@ -371,9 +420,7 @@ export const toggleTaskChecked =
 // Blockquotes
 // ---------------------------------------------------------------------------
 
-export const wrapInBlockquote: Command = (state, dispatch) => {
-    // Over a cross-block range: not yet (range formatting, #57).
-    if (isCrossBlock(state.selection)) return false;
+export const wrapInBlockquote: Command = (state, dispatch, ctx) => {
     const keys = selectedBlockKeys(state);
     if (!keys.length) return false;
     const entries = keys.map((k) => entryOf(state, k)).filter((e): e is BlockEntry => !!e);
@@ -385,14 +432,17 @@ export const wrapInBlockquote: Command = (state, dispatch) => {
     steps.push({ type: 'insertBlock', parentKey, index: startIndex, node: { type: 'blockquote', children: entries.map((e) => e.node as BlockContent) } });
     const qKey = keyAt(parentKey, startIndex);
     const sel = state.selection;
-    const selection: EditorSelection = sel && sel.mode === 'text' ? { mode: 'text', anchor: { key: `${qKey}.0`, offset: sel.anchor.offset }, head: { key: `${qKey}.0`, offset: sel.head.offset } } : blockSelection(qKey);
+    const selection: EditorSelection =
+        sel && sel.mode === 'text'
+            ? isCrossBlock(sel)
+                ? remapByEditableOrder(state, sel, steps, ctx)
+                : { mode: 'text', anchor: { key: `${qKey}.0`, offset: sel.anchor.offset }, head: { key: `${qKey}.0`, offset: sel.head.offset } }
+            : blockSelection(qKey);
     dispatch?.({ steps, selection, meta: meta() });
     return true;
 };
 
-export const liftOutOfBlockquote: Command = (state, dispatch) => {
-    // Over a cross-block range: not yet (range formatting, #57).
-    if (isCrossBlock(state.selection)) return false;
+export const liftOutOfBlockquote: Command = (state, dispatch, ctx) => {
     const keys = selectedBlockKeys(state);
     if (!keys.length) return false;
     const entry = entryOf(state, keys[0]);
@@ -411,7 +461,12 @@ export const liftOutOfBlockquote: Command = (state, dispatch) => {
     for (const node of lifted) steps.push({ type: 'insertBlock', parentKey: quote.parentKey, index: insertAt++, node });
     if (after.length) steps.push({ type: 'insertBlock', parentKey: quote.parentKey, index: insertAt, node: { type: 'blockquote', children: after } });
     const sel = state.selection;
-    const selection: EditorSelection = sel && sel.mode === 'text' ? { mode: 'text', anchor: { key: firstKey, offset: sel.anchor.offset }, head: { key: firstKey, offset: sel.head.offset } } : blockSelection(firstKey);
+    const selection: EditorSelection =
+        sel && sel.mode === 'text'
+            ? isCrossBlock(sel)
+                ? remapByEditableOrder(state, sel, steps, ctx)
+                : { mode: 'text', anchor: { key: firstKey, offset: sel.anchor.offset }, head: { key: firstKey, offset: sel.head.offset } }
+            : blockSelection(firstKey);
     dispatch?.({ steps, selection, meta: meta() });
     return true;
 };

@@ -67,6 +67,7 @@ describe('toolbarState', () => {
             canUndo: false,
             canRedo: false,
             mode: 'text',
+            multiBlock: false,
         });
         expect(toolbarState(stateOf('## hi', at('b-0', 1)), ctx, history())).toMatchObject({ blockType: 'heading', attrs: { depth: 2 } });
         const code = toolbarState(stateOf('```ts\nx\n```', at('b-0', 1)), ctx, history(true));
@@ -100,6 +101,7 @@ describe('toolbarState', () => {
             canUndo: true,
             canRedo: true,
             mode: 'none',
+            multiBlock: false,
         });
     });
 });
@@ -112,7 +114,7 @@ describe('defaultToolbarItems', () => {
     });
 
     it('derives active states from the toolbar state', () => {
-        const tb = (overrides: Partial<ToolbarState>): ToolbarState => ({ activeMarks: [], blockType: 'paragraph', attrs: {}, ancestors: [], listKind: null, inBlockquote: false, canUndo: false, canRedo: false, mode: 'text', ...overrides });
+        const tb = (overrides: Partial<ToolbarState>): ToolbarState => ({ activeMarks: [], blockType: 'paragraph', attrs: {}, ancestors: [], listKind: null, inBlockquote: false, canUndo: false, canRedo: false, mode: 'text', multiBlock: false, ...overrides });
         expect(by.bold.isActive!(tb({ activeMarks: ['strong'] }))).toBe(true);
         expect(by.bold.isActive!(tb({}))).toBe(false);
         expect(by.italic.isActive!(tb({ activeMarks: ['emphasis'] }))).toBe(true);

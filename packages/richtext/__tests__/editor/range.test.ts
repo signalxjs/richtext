@@ -4,6 +4,7 @@ import { createState, blockSelection, comparePoints, isCrossBlock, textRange, te
 import type { EditorSelection, Point } from '../../src/editor/state.js';
 import { normalizeTextRange, orderedRange, rangeBlocks, sliceDoc } from '../../src/editor/range.js';
 import { createEditor } from '../../src/editor/editor.js';
+import { toolbarState } from '../../src/editor/toolbar.js';
 import { markdownPreset } from '@sigx/richtext-markdown/editor';
 import { applyTransaction, mapSelection } from '../../src/editor/transaction.js';
 import type { Transaction } from '../../src/editor/transaction.js';
@@ -144,7 +145,7 @@ describe('commands over a cross-block range', () => {
     const cross = range(pt('b-0', 1), pt('b-1', 1));
 
     it('single-block commands refuse it', () => {
-        for (const command of [C.toggleMark('strong'), C.joinTextBackward, C.setLink('u'), C.indentListItem, C.toggleList('bullet'), C.wrapInBlockquote, C.addRowAfter]) {
+        for (const command of [C.joinTextBackward, C.indentListItem, C.outdentListItem, C.addRowAfter, C.toggleTaskChecked()]) {
             expect(run('ab\n\ncd', cross, command).ok).toBe(false);
         }
     });
@@ -314,5 +315,75 @@ describe('extendSelectionToNeighbour (#62)', () => {
         const edge = run('ab\n\ncd', range(pt('b-0', 0), pt('b-1', 0)), C.extendSelectionToNeighbour('down'));
         expect(edge.state.selection).toEqual(range(pt('b-0', 0), pt('b-1', 2)));
         expect(run('ab\n\ncd', range(pt('b-0', 0), pt('b-1', 2)), C.extendSelectionToNeighbour('down')).ok).toBe(false);
+    });
+});
+
+describe('formatting over a range (#64)', () => {
+    const sel = range(pt('b-0', 2), pt('b-1', 3));
+
+    it('toggleMark adds a mark to every segment unless it covers all of them, then removes it', () => {
+        const on = run('hello\n\nworld', sel, C.toggleMark('strong'));
+        expect(on.md).toBe('he**llo**\n\n**wor**ld\n');
+        expect(on.state.selection).toEqual(sel);
+        expect(run(on.md, sel, C.toggleMark('strong')).md).toBe('hello\n\nworld\n');
+        // Covered in one block only: added to the other.
+        expect(run('**hello**\n\nworld', sel, C.toggleMark('strong')).md).toBe('**hello**\n\n**wor**ld\n');
+    });
+
+    it('skips code, void blocks and tables, and refuses a range with no text in it', () => {
+        expect(run('ab\n\n---\n\n```\nx\n```\n\ncd', range(pt('b-0', 0), pt('b-3', 2)), C.toggleMark('emphasis')).md).toBe('*ab*\n\n---\n\n```\nx\n```\n\n*cd*\n');
+        expect(run('ab\n\ncd', range(pt('b-0', 2), pt('b-1', 0)), C.toggleMark('strong')).ok).toBe(false);
+    });
+
+    it('setLink and unsetLink link every segment', () => {
+        const linked = run('hello\n\nworld', sel, C.setLink('https://x'));
+        expect(linked.md).toBe('he[llo](https://x)\n\n[wor](https://x)ld\n');
+        expect(run(linked.md, sel, C.unsetLink).md).toBe('hello\n\nworld\n');
+        expect(run('hello\n\nworld', sel, C.unsetLink).ok).toBe(false);
+    });
+
+    it('setBlockType converts every text block in the range, inside lists too', () => {
+        expect(run('a\n\n- b\n\nc', range(pt('b-0', 0), pt('b-2', 1)), C.setBlockType('heading', { depth: 2 })).md).toBe('## a\n\n- ## b\n\n## c\n');
+    });
+
+    it('toggleList wraps the run and the selection follows the blocks', () => {
+        const r = run('a\n\nb\n\nc', range(pt('b-0', 1), pt('b-1', 1)), C.toggleList('bullet'));
+        expect(r.md).toBe('- a\n- b\n\nc\n');
+        expect(r.state.selection).toEqual(range(pt('b-0.0.0', 1), pt('b-0.1.0', 1)));
+    });
+
+    it('toggleList over items of one list changes its kind, or unwraps them', () => {
+        const items = range(pt('b-0.0.0', 0), pt('b-0.1.0', 1));
+        const kind = run('- a\n- b\n- c', items, C.toggleList('ordered'));
+        expect(kind.md).toBe('1. a\n2. b\n3. c\n');
+        expect(kind.state.selection).toEqual(items);
+        const off = run('- a\n- b\n- c', items, C.toggleList('bullet'));
+        expect(off.md).toBe('a\n\nb\n\n- c\n');
+        expect(off.state.selection).toEqual(range(pt('b-0', 0), pt('b-1', 1)));
+    });
+
+    it('wrapInBlockquote and liftOutOfBlockquote work over the run', () => {
+        const wrapped = run('a\n\nb\n\nc', range(pt('b-0', 1), pt('b-1', 1)), C.wrapInBlockquote);
+        expect(wrapped.md).toBe('> a\n>\n> b\n\nc\n');
+        expect(wrapped.state.selection).toEqual(range(pt('b-0.0', 1), pt('b-0.1', 1)));
+        const lifted = run(wrapped.md, range(pt('b-0.0', 1), pt('b-0.1', 1)), C.liftOutOfBlockquote);
+        expect(lifted.md).toBe('a\n\nb\n\nc\n');
+        expect(lifted.state.selection).toEqual(range(pt('b-0', 1), pt('b-1', 1)));
+    });
+});
+
+describe('toolbar over a range (#64)', () => {
+    const tb = (md: string, a: Point, h: Point) => toolbarState(state(md, range(a, h)), ctx, { canUndo: () => false, canRedo: () => false });
+
+    it('reports the marks covering all of the text and flags the range', () => {
+        expect(tb('**a**\n\n**b** c', pt('b-0', 0), pt('b-1', 1))).toMatchObject({ activeMarks: ['strong'], multiBlock: true, mode: 'text', blockType: 'paragraph' });
+        expect(tb('**a**\n\n**b** c', pt('b-0', 0), pt('b-1', 3)).activeMarks).toEqual([]);
+    });
+
+    it('reports the block type and attrs only when every block shares them', () => {
+        expect(tb('# a\n\nb', pt('b-0', 0), pt('b-1', 1))).toMatchObject({ blockType: null, attrs: {} });
+        expect(tb('## a\n\n# b', pt('b-0', 0), pt('b-1', 1))).toMatchObject({ blockType: 'heading', attrs: {} });
+        expect(tb('## a\n\n## b', pt('b-1', 1), pt('b-0', 0))).toMatchObject({ blockType: 'heading', attrs: { depth: 2 } });
+        expect(tb('- a\n\nb', pt('b-0.0.0', 0), pt('b-1', 1))).toMatchObject({ listKind: 'bullet', ancestors: ['listItem', 'list'] });
     });
 });

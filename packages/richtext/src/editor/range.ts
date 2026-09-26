@@ -14,7 +14,7 @@
 import type { Root } from '../ast/index.js';
 import type { CommandContext } from './commands.js';
 import { clipboardRoot, entryOf, firstEditable, lastEditable, lengthOf, siblingRun, stripKeys } from './blocks.js';
-import { sliceFlat, toInline } from './inline-flat.js';
+import { sliceFlat, toInline, type InlineFlat } from './inline-flat.js';
 import type { BlockEntry, EditorBlock, EditorSelection, EditorState, Point, TextSelection } from './state.js';
 import { flatOf } from './steps.js';
 import { comparePoints, isCrossBlock, textRange } from './state.js';
@@ -181,3 +181,33 @@ export function sliceDoc(state: EditorState, sel: TextSelection, ctx: CommandCon
     const first = entryOf(state, run[0])!;
     return clipboardRoot(state, first.parentKey, run.map((k) => stripKeys(prune(entryOf(state, k)!.node))), ctx);
 }
+
+/** A non-empty stretch of one text block inside a range, with the block's flat model. */
+export interface TextSegment {
+    key: string;
+    from: number;
+    to: number;
+    flat: InlineFlat;
+}
+
+/**
+ * The text a range covers, block by block: every text block with a
+ * non-empty stretch in it (code, void blocks and tables are left out) —
+ * what marks and links apply to.
+ */
+export function textSegments(state: EditorState, sel: TextSelection, ctx: CommandContext): TextSegment[] {
+    const out: TextSegment[] = [];
+    for (const b of rangeBlocks(state, normalizeTextRange(state, sel, ctx), ctx)) {
+        if (b.role !== 'textblock' || b.from >= b.to) continue;
+        out.push({ key: b.key, from: b.from, to: b.to, flat: flatOf(entryOf(state, b.key)!.node, ctx) });
+    }
+    return out;
+}
+
+/** The text and code blocks a range covers, in document order (table cells excluded) — what block-type changes apply to. */
+export function rangeLeafKeys(state: EditorState, sel: TextSelection, ctx: CommandContext): string[] {
+    return rangeBlocks(state, normalizeTextRange(state, sel, ctx), ctx)
+        .filter((b) => b.role === 'textblock' || b.role === 'code')
+        .map((b) => b.key);
+}
+

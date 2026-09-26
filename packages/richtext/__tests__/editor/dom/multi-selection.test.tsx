@@ -5,7 +5,7 @@
  * Real drags and native Shift+Arrow extension are covered by the playground e2e.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { jsx } from 'sigx';
+import { component, jsx, signal } from 'sigx';
 import { render } from '@sigx/runtime-dom';
 import { RichTextEditor, type RichTextEditorController } from '../../../src/editor/dom/index.js';
 import { domPointToModel } from '../../../src/editor/dom/multi-selection.js';
@@ -160,6 +160,44 @@ describe('multi-block mode', () => {
         await tick();
         expect(cut.setData).toHaveBeenCalled();
         expect(m.source()).toBe('held\n');
+    });
+
+    it('cut never deletes what it could not copy (#67 review)', async () => {
+        const m = await mount('hello\n\nworld');
+        await m.select(HW);
+        m.host('b-0').dispatchEvent(new Event('cut', { bubbles: true, cancelable: true }));
+        await tick();
+        expect(m.source()).toBe('hello\n\nworld\n');
+    });
+
+    it('a virtual keyboard paste (beforeinput insertFromPaste) replaces the range (#67 review)', async () => {
+        const m = await mount('hello\n\nworld');
+        await m.select(HW);
+        const e = new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromPaste' });
+        Object.defineProperty(e, 'dataTransfer', { value: { types: ['text/plain'], getData: (t: string) => (t === 'text/plain' ? 'x' : '') } });
+        m.host('b-0').dispatchEvent(e);
+        await tick();
+        expect(e.defaultPrevented).toBe(true);
+        expect(m.source()).toBe('hexld\n');
+    });
+
+    it('turning read-only on leaves the mode (#67 review)', async () => {
+        const ro = signal({ on: false });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        containers.push(container);
+        let controller!: RichTextEditorController;
+        const Host = component(() => () => jsx(RichTextEditor, { format: markdownFormat, defaultSource: 'hello\n\nworld', plugins: [markdownPreset], readOnly: ro.on, ref: (c: RichTextEditorController) => (controller = c) }));
+        render(jsx(Host, {}) as never, container);
+        await tick();
+        const content = container.querySelector('[data-part=content]') as HTMLElement;
+        (container.querySelector('[data-part=inline][data-key="b-0"]') as HTMLElement).focus();
+        controller.editor.setSelection(HW);
+        await tick();
+        expect(content.getAttribute('contenteditable')).toBe('true');
+        ro.on = true;
+        await tick();
+        expect(content.hasAttribute('contenteditable')).toBe(false);
     });
 
     it('marks code, void and table blocks inside the range', async () => {

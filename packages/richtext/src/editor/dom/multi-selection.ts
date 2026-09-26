@@ -308,7 +308,10 @@ export function createMultiSelection(view: EditorView): MultiSelection {
         }
         e.preventDefault();
         if (chord) editor.runKey(chord);
-        else if (type === 'insertText' || type === 'insertReplacementText') {
+        else if (type === 'insertFromPaste') {
+            // A virtual keyboard's paste arrives here, not as a paste event.
+            if (e.dataTransfer) editor.paste(readPasteData(e.dataTransfer));
+        } else if (type === 'insertText' || type === 'insertReplacementText') {
             const text = e.data ?? e.dataTransfer?.getData('text/plain') ?? '';
             if (text) run(insertText(text));
         } else if (type.startsWith('delete')) run('deleteRange');
@@ -469,8 +472,12 @@ export function createMultiSelection(view: EditorView): MultiSelection {
         },
         sync(state) {
             const sel = state.selection;
+            if (view.readOnly()) {
+                // Read-only: never the editing host (a native selection still copies).
+                exit();
+                return;
+            }
             if (sel && sel.mode === 'text' && isCrossBlock(sel)) {
-                if (view.readOnly()) return;
                 if (!active && view.hasFocus()) enter();
                 if (active && !reading) schedulePaint();
             } else if (active) exit();

@@ -258,6 +258,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
             if (editor.readOnly !== ro) {
                 editor.readOnly = ro;
                 for (const s of view.surfaces.values()) s.setReadOnly(ro);
+                multi.sync(editor.state);
             }
         },
     );
@@ -390,24 +391,29 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
         return sel?.mode === 'block' || (sel?.mode === 'text' && isCrossBlock(sel));
     };
 
-    /** Copy a block selection or a cross-block range: every flavour the plugins' clipboard writers produce; the primary format as `text/plain` when none sets it. */
-    const onCopy = (e: ClipboardEvent): void => {
+    /**
+     * Copy a block selection or a cross-block range: every flavour the plugins' clipboard writers produce; the
+     * primary format as `text/plain` when none sets it. Whether it wrote anything (cut deletes only then).
+     */
+    const writeClipboard = (e: ClipboardEvent): boolean => {
         multi.refresh();
-        if (!ownsClipboard() || !e.clipboardData) return;
+        if (!ownsClipboard() || !e.clipboardData) return false;
         const root: Root | null = copySelection(editor.state, editor.ctx);
-        if (!root) return;
+        if (!root) return false;
         const flavours = editor.clipboard(root);
         if (!flavours.text) flavours.text = serialize(root);
         for (const [mime, value] of Object.entries(flavours)) {
             if (typeof value === 'string') e.clipboardData.setData(mime === 'text' ? 'text/plain' : mime, value);
         }
         e.preventDefault();
+        return true;
     };
 
+    const onCopy = (e: ClipboardEvent): void => void writeClipboard(e);
+
     const onCut = (e: ClipboardEvent): void => {
-        if (!ownsClipboard()) return;
-        onCopy(e);
-        if (!editor.readOnly) editor.run(cutSelection);
+        // Never delete what did not reach the clipboard.
+        if (writeClipboard(e) && !editor.readOnly) editor.run(cutSelection);
     };
 
     /** Paste over a block selection replaces the selected blocks (a text selection's paste is the surface's). */

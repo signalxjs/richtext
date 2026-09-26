@@ -47,7 +47,7 @@ export { createSchema, standardNodes, standardSchema } from '../schema/index.js'
 export type { Schema, NodeSpec, NodeRole, InlineFlatSpec, BlockMenuEntry } from '../schema/index.js';
 
 export * as commands from './registry.js';
-export { commands as commandRegistry, selectedBlockKeys, chain } from './registry.js';
+export { commands as commandRegistry, selectedBlockKeys, blocksToRoot, replaceSelectedBlocks, chain } from './registry.js';
 export type { Command, CommandContext, CommandName, Dispatch, ListKind } from './registry.js';
 
 export { pickPasteFormat } from './paste.js';

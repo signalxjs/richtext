@@ -246,23 +246,46 @@ export const toggleList =
             dispatch?.({ steps, selection: state.selection, meta: meta() });
             return true;
         }
-        // Wrap: consecutive selected siblings become one list.
-        const entries = keys.map((k) => entryOf(state, k)).filter((e): e is BlockEntry => !!e && ctx.schema.role(e.node.type) === 'textblock' && e.node.type !== 'tableCell');
-        if (!entries.length) return false;
+        // Wrap: each run of consecutive text blocks and lists among the selected
+        // siblings becomes one list (a list's items are spliced in, converted to
+        // `kind`); any other block stays where it is and ends the run.
+        const entries = keys.map((k) => entryOf(state, k)).filter((e): e is BlockEntry => !!e);
+        const isList = (e: BlockEntry): boolean => e.node.type === 'list';
+        const convertible = (e: BlockEntry): boolean => isList(e) || (ctx.schema.role(e.node.type) === 'textblock' && e.node.type !== 'tableCell');
+        const runs: BlockEntry[][] = [];
+        let open: BlockEntry[] | null = null;
+        for (const e of entries) {
+            if (!convertible(e)) {
+                open = null;
+                continue;
+            }
+            if (!open) runs.push((open = []));
+            open.push(e);
+        }
+        // Nothing to wrap, or every run is already a single list of this kind.
+        if (!runs.length || runs.every((r) => r.length === 1 && isList(r[0]) && (r[0].node as List).children.every((item) => listKindOf(r[0].node as List, item) === kind))) return false;
+        const asItem = (item: ListItem): ListItem => listItem(item.children as BlockContent[], kind === 'task' ? (item.checked ?? false) : undefined);
         const parentKey = entries[0].parentKey;
-        const startIndex = entries[0].index;
-        const items = entries.map((e) => listItem([e.node as BlockContent], kind === 'task' ? false : undefined));
-        const list: List = { type: 'list', ordered: kind === 'ordered', spread: false, children: items };
-        if (kind === 'ordered') list.start = 1;
         const steps: Step[] = [];
-        for (let i = entries.length - 1; i >= 0; i--) steps.push({ type: 'removeBlock', parentKey, index: entries[i].index });
-        steps.push({ type: 'insertBlock', parentKey, index: startIndex, node: list });
+        for (let r = runs.length - 1; r >= 0; r--) {
+            const run = runs[r];
+            const items = run.flatMap((e) => (isList(e) ? (e.node as List).children.map(asItem) : [listItem([e.node as BlockContent], kind === 'task' ? false : undefined)]));
+            const list: List = { type: 'list', ordered: kind === 'ordered', spread: false, children: items };
+            if (kind === 'ordered') list.start = 1;
+            for (let i = run.length - 1; i >= 0; i--) steps.push({ type: 'removeBlock', parentKey, index: run[i].index });
+            steps.push({ type: 'insertBlock', parentKey, index: run[0].index, node: list });
+        }
         const sel = state.selection;
-        const listKey = keyAt(parentKey, startIndex);
-        const selection: EditorSelection =
-            sel && sel.mode === 'text'
-                ? { mode: 'text', anchor: { key: `${listKey}.0.0`, offset: sel.anchor.offset }, head: { key: `${listKey}.0.0`, offset: sel.head.offset } }
-                : blockSelection(listKey);
+        const firstIndex = entries[0].index;
+        const listKey = keyAt(parentKey, runs[0][0].index);
+        let selection: EditorSelection;
+        if (sel && sel.mode === 'text') {
+            selection = { mode: 'text', anchor: { key: `${listKey}.0.0`, offset: sel.anchor.offset }, head: { key: `${listKey}.0.0`, offset: sel.head.offset } };
+        } else {
+            // Every run of n blocks collapses into one list.
+            const lastIndex = entries[entries.length - 1].index - runs.reduce((n, r) => n + r.length - 1, 0);
+            selection = blockSelection(keyAt(parentKey, firstIndex), keyAt(parentKey, lastIndex));
+        }
         dispatch?.({ steps, selection, meta: meta() });
         return true;
     };

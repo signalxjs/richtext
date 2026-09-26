@@ -404,17 +404,59 @@ function clampSelection(sel: TextSelection, steps: Step[], ctx: CommandContext):
     return { mode: 'text', anchor: { key: sel.anchor.key, offset: Math.min(sel.anchor.offset, len) }, head: { key: sel.head.key, offset: Math.min(sel.head.offset, len) } };
 }
 
-/** Keys the current selection covers: the text block, or the blocks of a block selection. */
+/** `entry` and its ancestors, outermost first. */
+function pathOf(state: EditorState, entry: BlockEntry): BlockEntry[] {
+    const path = [entry];
+    while (path[0].parentKey !== null) path.unshift(entryOf(state, path[0].parentKey)!);
+    return path;
+}
+
+/**
+ * Keys the current selection covers: the text block, or the blocks of a block
+ * selection. A block selection whose ends have different parents is lifted to
+ * their lowest common parent: the sibling run there from the child holding
+ * one end to the child holding the other. When one end contains the other,
+ * that outer block alone.
+ */
 export function selectedBlockKeys(state: EditorState): string[] {
     const sel = state.selection;
     if (!sel) return [];
     if (sel.mode === 'text') return [sel.anchor.key];
     const a = entryOf(state, sel.anchorKey);
     const h = entryOf(state, sel.headKey);
-    if (!a || !h || a.parentKey !== h.parentKey) return [sel.anchorKey];
-    const siblings = (a.parent as { children: EditorBlock[] }).children;
-    const [from, to] = a.index <= h.index ? [a.index, h.index] : [h.index, a.index];
+    if (!a || !h) return a ? [sel.anchorKey] : [];
+    const pa = pathOf(state, a);
+    const ph = pathOf(state, h);
+    let depth = 0;
+    while (depth < pa.length && depth < ph.length && pa[depth].node.key === ph[depth].node.key) depth++;
+    // One end is (or contains) the other.
+    if (depth === pa.length || depth === ph.length) return [pa[depth - 1].node.key!];
+    const x = pa[depth];
+    const y = ph[depth];
+    const siblings = (x.parent as { children: EditorBlock[] }).children;
+    const [from, to] = x.index <= y.index ? [x.index, y.index] : [y.index, x.index];
     return siblings.slice(from, to + 1).map((n) => n.key!);
+}
+
+/**
+ * A document of the given sibling blocks, for the clipboard. Blocks that
+ * cannot stand on their own are wrapped in a copy of the parent they need
+ * (a list item in its list, a row in its table): the walk goes up until it
+ * reaches the root or a flow container (one with `fillsWith`, whose children
+ * can be any block).
+ */
+export function blocksToRoot(state: EditorState, keys: readonly string[], ctx: CommandContext): Root {
+    const entries = keys.map((k) => entryOf(state, k)).filter((e): e is BlockEntry => !!e);
+    if (!entries.length) return { type: 'root', children: [] };
+    let nodes: EditorBlock[] = entries.map((e) => stripKeys(e.node));
+    let parentKey = entries[0].parentKey;
+    while (parentKey !== null) {
+        const parent = entryOf(state, parentKey)!;
+        if (ctx.schema.get(parent.node.type)?.fillsWith) break;
+        nodes = [{ type: parent.node.type, ...stripKeys(ownAttrs(parent.node)), children: nodes } as EditorBlock];
+        parentKey = parent.parentKey;
+    }
+    return { type: 'root', children: nodes as BlockContent[] };
 }
 
 /** Insert a block after the current one and move the caret into it (or select it when void). */
@@ -488,6 +530,7 @@ const moveBy =
     (delta: -1 | 1): Command =>
     (state, dispatch, ctx) => {
         const keys = selectedBlockKeys(state);
+        if (keys.length > 1) return moveRunBy(state, keys, delta, dispatch);
         if (keys.length !== 1) return false;
         const entry = entryOf(state, keys[0]);
         if (!entry) return false;
@@ -505,6 +548,25 @@ const moveBy =
         dispatch?.({ steps: [{ type: 'moveBlock', key: target.node.key!, to: { parentKey: target.parentKey, index: to } }], selection, meta: meta() });
         return true;
     };
+
+/** Move a run of sibling blocks: the neighbour on the far side moves to the near side of the run. */
+function moveRunBy(state: EditorState, keys: readonly string[], delta: -1 | 1, dispatch: Dispatch | undefined): boolean {
+    const sel = state.selection;
+    const first = entryOf(state, keys[0]);
+    const last = entryOf(state, keys[keys.length - 1]);
+    if (!first || !last || sel?.mode !== 'block') return false;
+    const siblings = (first.parent as { children: EditorBlock[] }).children;
+    const neighbour = delta < 0 ? first.index - 1 : last.index + 1;
+    if (neighbour < 0 || neighbour >= siblings.length) return false;
+    // `to.index` counts after the neighbour's removal: past the run going up, before it going down.
+    const to = delta < 0 ? last.index : first.index;
+    const shift = (key: string): string => keyAt(first.parentKey, entryOf(state, key)!.index + delta);
+    // The ends may sit deeper than the run (a lifted selection): re-anchor on the run's ends, keeping the direction.
+    const forward = entryOf(state, sel.anchorKey)!.index <= entryOf(state, sel.headKey)!.index || keys[0] === keys[keys.length - 1];
+    const [anchor, head] = forward ? [keys[0], keys[keys.length - 1]] : [keys[keys.length - 1], keys[0]];
+    dispatch?.({ steps: [{ type: 'moveBlock', key: siblings[neighbour].key!, to: { parentKey: first.parentKey, index: to } }], selection: blockSelection(shift(anchor), shift(head)), meta: meta() });
+    return true;
+}
 
 export const moveBlockUp: Command = moveBy(-1);
 export const moveBlockDown: Command = moveBy(1);
@@ -702,10 +764,49 @@ export const clear: Command = (state, dispatch, ctx) =>
 // Paste
 // ---------------------------------------------------------------------------
 
-/** Insert parsed blocks at the selection: the first block merges into the current text block when both are text. */
+/**
+ * Replace the blocks of a block selection with `blocks`. Under a list-like
+ * parent (a container without `fillsWith`, whose children are all one kind),
+ * a pasted block of the parent's type contributes its children and any other
+ * block is wrapped in a copy of the selected child's type when that type is
+ * a flow container (a list item). Isolating parents (table rows) refuse.
+ */
+export const replaceSelectedBlocks =
+    (blocks: BlockContent[]): Command =>
+    (state, dispatch, ctx) => {
+        if (state.selection?.mode !== 'block' || !blocks.length) return false;
+        const keys = selectedBlockKeys(state);
+        const entries = keys.map((k) => entryOf(state, k)).filter((e): e is BlockEntry => !!e);
+        if (!entries.length) return false;
+        const first = entries[0];
+        const parentType = first.parentKey === null ? null : first.parent.type;
+        if (parentType !== null && isolating(parentType, ctx)) return false;
+        let nodes: BlockContent[] = blocks;
+        if (parentType !== null && !ctx.schema.get(parentType)?.fillsWith) {
+            const shell = first.node;
+            if (!ctx.schema.get(shell.type)?.fillsWith) return false;
+            nodes = blocks.flatMap((b) =>
+                b.type === parentType ? ((b as { children: BlockContent[] }).children ?? []) : [{ type: shell.type, ...stripKeys(ownAttrs(shell)), children: [b] } as unknown as BlockContent],
+            );
+            if (!nodes.length) return false;
+        }
+        const steps: Step[] = [];
+        for (let i = entries.length - 1; i >= 0; i--) steps.push({ type: 'removeBlock', parentKey: first.parentKey, index: entries[i].index });
+        nodes.forEach((node, i) => steps.push({ type: 'insertBlock', parentKey: first.parentKey, index: first.index + i, node }));
+        const lastKey = keyAt(first.parentKey, first.index + nodes.length - 1);
+        const lastNode = nodes[nodes.length - 1];
+        const keyed = { ...lastNode, key: lastKey } as EditorBlock;
+        const last = lastEditable(keyed, ctx);
+        const selection = last ? textSelection(relKey(lastKey, keyed, last, ctx), lengthOf(last, ctx)) : blockSelection(keyAt(first.parentKey, first.index), lastKey);
+        dispatch?.({ steps, selection, meta: meta({ origin: 'paste' }) });
+        return true;
+    };
+
+/** Insert parsed blocks at the selection: the first block merges into the current text block when both are text; over a block selection they replace it. */
 export const insertBlocks =
     (blocks: BlockContent[]): Command =>
     (state, dispatch, ctx) => {
+        if (state.selection?.mode === 'block') return replaceSelectedBlocks(blocks)(state, dispatch, ctx);
         const sel = textSel(state);
         if (!sel || !blocks.length) return false;
         const key = sel.anchor.key;

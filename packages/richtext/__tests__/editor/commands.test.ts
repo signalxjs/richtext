@@ -12,6 +12,7 @@ import { applyTransaction } from '../../src/editor/transaction.js';
 import type { Transaction } from '../../src/editor/transaction.js';
 import * as C from '../../src/editor/registry.js';
 import type { Command, CommandContext } from '../../src/editor/commands.js';
+import { blocksToRoot, selectedBlockKeys } from '../../src/editor/commands.js';
 import { markdownFormat } from '@sigx/richtext-markdown';
 import { plainTextFormat } from '../../src/document/index.js';
 
@@ -417,6 +418,70 @@ describe('Enter and Backspace chains', () => {
         expect(run('> h', at('b-0.0', 0), C.joinBackward).md).toBe('h\n');
         expect(run('a\n\nb', at('b-1', 0), C.joinBackward).md).toBe('ab\n');
         expect(run('a\n\nb', at('b-1', 0), C.joinBackwardInList).ok).toBe(false);
+    });
+});
+
+describe('block selections (#58)', () => {
+    const sel = (md: string, anchor: string, head: string) => selectedBlockKeys(createState(parseMarkdown(md), blockSelection(anchor, head), schema));
+
+    it('selectedBlockKeys lifts both ends to their lowest common parent', () => {
+        const md = 'a\n\n- b\n- c\n\nd';
+        expect(sel(md, 'b-0', 'b-1.1')).toEqual(['b-0', 'b-1']);
+        expect(sel(md, 'b-1.1.0', 'b-0')).toEqual(['b-0', 'b-1']);
+        expect(sel(md, 'b-1.0.0', 'b-1.1.0')).toEqual(['b-1.0', 'b-1.1']);
+        expect(sel(md, 'b-1.1', 'b-2')).toEqual(['b-1', 'b-2']);
+        // One end inside the other: the outer block.
+        expect(sel(md, 'b-1', 'b-1.0.0')).toEqual(['b-1']);
+    });
+
+    it('toggleList keeps the order of a mixed selection: non-text blocks split the runs', () => {
+        const r = run('a\n\n---\n\nb\n\nc', blockSelection('b-0', 'b-3'), C.toggleList('bullet'));
+        expect(r.md).toBe('- a\n\n---\n\n- b\n- c\n');
+        expect(r.state.selection).toEqual(blockSelection('b-0', 'b-2'));
+    });
+
+    it('toggleList splices the items of a selected list into the new one', () => {
+        const r = run('a\n\n1. b\n2. c\n\nd', blockSelection('b-0', 'b-2'), C.toggleList('bullet'));
+        expect(r.md).toBe('- a\n- b\n- c\n- d\n');
+        expect(r.state.selection).toEqual(blockSelection('b-0'));
+        // Already a list of that kind: nothing to do.
+        expect(run('- a\n- b', blockSelection('b-0'), C.toggleList('bullet')).ok).toBe(false);
+    });
+
+    it('blocksToRoot wraps a nested selection in the parents it cannot live without', () => {
+        const root = (md: string, keys: string[]) => toMarkdown(blocksToRoot(createState(parseMarkdown(md), null, schema), keys, ctx));
+        expect(root('- a\n- b\n- c', ['b-0.1', 'b-0.2'])).toBe('- b\n- c\n');
+        expect(root('> a\n>\n> b', ['b-0.1'])).toBe('b\n');
+        expect(root('a\n\nb', ['b-0', 'b-1'])).toBe('a\n\nb\n');
+        expect(root('| a | b |\n| - | - |\n| c | d |', ['b-0.1'])).toBe('| c | d |\n| --- | --- |\n');
+    });
+
+    it('paste replaces the selected blocks', () => {
+        const r = run('a\n\nb\n\nc', blockSelection('b-1'), C.paste({ text: 'x\n\ny' }));
+        expect(r.md).toBe('a\n\nx\n\ny\n\nc\n');
+        expect(r.state.selection).toEqual(at('b-2', 1));
+        expect(r.tr!.meta.origin).toBe('paste');
+        const all = run('a\n\nb', blockSelection('b-0', 'b-1'), C.paste({ text: '# h' }));
+        expect(all.md).toBe('# h\n');
+        expect(all.state.selection).toEqual(at('b-0', 1));
+    });
+
+    it('paste over list items splices a pasted list and wraps other blocks in items', () => {
+        expect(run('- a\n- b\n- c', blockSelection('b-0.1'), C.paste({ text: '- x\n- y' })).md).toBe('- a\n- x\n- y\n- c\n');
+        expect(run('- a\n- b\n- c', blockSelection('b-0.1'), C.paste({ text: 'x' })).md).toBe('- a\n- x\n- c\n');
+        // Rows of a table are isolating: refused.
+        expect(run('| a |\n| - |\n| b |', blockSelection('b-0.1'), C.paste({ text: 'x' })).ok).toBe(false);
+    });
+
+    it('moveBlockUp/Down move a multi-block run and keep its direction', () => {
+        const up = run('a\n\nb\n\nc\n\nd', blockSelection('b-1', 'b-2'), C.moveBlockUp);
+        expect(up.md).toBe('b\n\nc\n\na\n\nd\n');
+        expect(up.state.selection).toEqual(blockSelection('b-0', 'b-1'));
+        const down = run('a\n\nb\n\nc\n\nd', blockSelection('b-2', 'b-1'), C.moveBlockDown);
+        expect(down.md).toBe('a\n\nd\n\nb\n\nc\n');
+        expect(down.state.selection).toEqual(blockSelection('b-3', 'b-2'));
+        expect(run('a\n\nb\n\nc', blockSelection('b-0', 'b-1'), C.moveBlockUp).ok).toBe(false);
+        expect(run('a\n\nb\n\nc', blockSelection('b-1', 'b-2'), C.moveBlockDown).ok).toBe(false);
     });
 });
 

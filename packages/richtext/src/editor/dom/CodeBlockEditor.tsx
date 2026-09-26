@@ -53,7 +53,7 @@ export const CodeBlockEditor = component<CodeBlockEditorProps>(({ props, onUnmou
     const syncSelection = (tr: Transaction, state: EditorState): void => {
         if (!surface) return;
         const sel = state.selection;
-        if (!sel || sel.mode !== 'text' || sel.anchor.key !== key) return;
+        if (!sel || sel.mode !== 'text' || sel.anchor.key !== key || sel.head.key !== key) return;
         if (tr.meta.origin === 'surface' && tr.meta.sourceKey === key) return;
         if (!view.hasFocus()) return;
         const range = { start: Math.min(sel.anchor.offset, sel.head.offset), end: Math.max(sel.anchor.offset, sel.head.offset) };

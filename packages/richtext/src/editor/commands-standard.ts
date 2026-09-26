@@ -12,7 +12,7 @@ import type { InlineFlat } from './inline-flat.js';
 import { addMark, removeMark, sliceFlat, toInline } from './inline-flat.js';
 import { chain, entryOf, firstEditable, inlineFlat, insertAtom, insertBlockAfter, joinTextBackward, keyAt, lengthOf, meta, selectedBlockKeys, setBlockType, splitTextBlock, textSel, toggleMark, type Command, type CommandContext, type Dispatch } from './commands.js';
 import type { BlockEntry, EditorSelection, EditorState } from './state.js';
-import { blockSelection, selectionRange, textSelection } from './state.js';
+import { blockSelection, isCrossBlock, selectionRange, textSelection } from './state.js';
 import type { Step } from './steps.js';
 
 function paragraph(children: PhrasingContent[] = []): BlockContent {
@@ -229,6 +229,8 @@ export const joinBackward: Command = chain(joinBackwardInList, liftOutOfBlockquo
 export const toggleList =
     (kind: ListKind): Command =>
     (state, dispatch, ctx) => {
+        // Over a cross-block range: not yet (range formatting, #57).
+        if (isCrossBlock(state.selection)) return false;
         const keys = selectedBlockKeys(state);
         if (!keys.length) return false;
         const first = entryOf(state, keys[0]);
@@ -368,6 +370,8 @@ export const toggleTaskChecked =
 // ---------------------------------------------------------------------------
 
 export const wrapInBlockquote: Command = (state, dispatch) => {
+    // Over a cross-block range: not yet (range formatting, #57).
+    if (isCrossBlock(state.selection)) return false;
     const keys = selectedBlockKeys(state);
     if (!keys.length) return false;
     const entries = keys.map((k) => entryOf(state, k)).filter((e): e is BlockEntry => !!e);
@@ -385,6 +389,8 @@ export const wrapInBlockquote: Command = (state, dispatch) => {
 };
 
 export const liftOutOfBlockquote: Command = (state, dispatch) => {
+    // Over a cross-block range: not yet (range formatting, #57).
+    if (isCrossBlock(state.selection)) return false;
     const keys = selectedBlockKeys(state);
     if (!keys.length) return false;
     const entry = entryOf(state, keys[0]);
@@ -442,8 +448,7 @@ function tableContext(state: EditorState, key: string): { table: BlockEntry; row
 const tableOp =
     (fn: (table: Table, row: number, col: number) => Table | null, selectCell?: (row: number, col: number) => [number, number]): Command =>
     (state, dispatch) => {
-        const sel = state.selection;
-        const key = sel?.mode === 'text' ? sel.anchor.key : null;
+        const key = textSel(state)?.anchor.key;
         if (!key) return false;
         const tc = tableContext(state, key);
         if (!tc) return false;

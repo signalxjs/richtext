@@ -309,7 +309,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
     function syncTriggers(state: EditorState): void {
         if (!triggers) return;
         const sel = state.selection;
-        if (sel?.mode === 'text') {
+        if (sel?.mode === 'text' && sel.anchor.key === sel.head.key) {
             const flat = editor.flatOf(sel.anchor.key);
             if (flat) {
                 triggers.syncText(sel.anchor.key, flat.text, flat.spans);

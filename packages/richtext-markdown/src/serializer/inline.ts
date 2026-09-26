@@ -13,6 +13,7 @@
  */
 
 import type { Delete, Emphasis, Image, ImageReference, InlineCode, Link, LinkReference, Literal, Node, Parent, Strong, Text } from '@sigx/richtext';
+import { isUnicodeWhitespace } from '@sigx/richtext';
 import type { SerializeContext, SerializeRule } from '../plugin/markdown.js';
 import { escapeLabel, escapeLinkDest, escapeText, longestRun, quoteTitle } from './escape.js';
 import type { ToMarkdownOptions } from './to-markdown.js';
@@ -84,18 +85,86 @@ function edgeAfter(parts: readonly string[], i: number, fallback: string | undef
     return fallback;
 }
 
+/** The marks whose delimiters must not touch whitespace on the inside. */
+const FLANKED: ReadonlySet<string> = new Set(['emphasis', 'strong', 'delete']);
+
+/** Leading / trailing CommonMark Unicode whitespace (the parser's flanking definition). */
+function leadingWhitespace(value: string): string {
+    let i = 0;
+    while (i < value.length && isUnicodeWhitespace(value[i])) i++;
+    return value.slice(0, i);
+}
+
+function trailingWhitespace(value: string): string {
+    let i = value.length;
+    while (i > 0 && isUnicodeWhitespace(value[i - 1])) i--;
+    return value.slice(i);
+}
+
+/**
+ * Move whitespace at the inner edges of emphasis / strong / delete out to
+ * sibling text: a delimiter run preceded (closing) or followed (opening) by
+ * whitespace is not right/left-flanking, so `**world **` would not re-parse
+ * as strong. A mark left holding nothing is dropped. Nested marks are hoisted
+ * first, so their whitespace moves out through the enclosing mark. Returns
+ * `children` itself when nothing changes; the input is never mutated.
+ */
+function hoistMarkWhitespace(children: readonly Node[], state: State): readonly Node[] {
+    let out: Node[] | null = null;
+    for (let i = 0; i < children.length; i++) {
+        const node = children[i];
+        const hoisted = FLANKED.has(node.type) && !state.rules.has(node.type) ? hoistMark(node as Parent, state) : null;
+        if (hoisted === null) {
+            out?.push(node);
+            continue;
+        }
+        out ??= children.slice(0, i) as Node[];
+        out.push(...hoisted);
+    }
+    return out ?? children;
+}
+
+/** The replacement for one mark, or null when it needs no change. */
+function hoistMark(mark: Parent, state: State): Node[] | null {
+    const inner = hoistMarkWhitespace(mark.children, state);
+    const kids = inner.slice() as Node[];
+    let lead = '';
+    let trail = '';
+    const first = kids[0];
+    if (first?.type === 'text') {
+        const value = (first as Text).value ?? '';
+        lead = leadingWhitespace(value);
+        if (lead) kids[0] = { ...first, value: value.slice(lead.length) } as Text;
+    }
+    const lastIndex = kids.length - 1;
+    const last = kids[lastIndex];
+    if (last?.type === 'text') {
+        const value = (last as Text).value ?? '';
+        trail = trailingWhitespace(value);
+        if (trail) kids[lastIndex] = { ...last, value: value.slice(0, value.length - trail.length) } as Text;
+    }
+    if (!lead && !trail && inner === mark.children) return null;
+    const content = kids.filter((k) => k.type !== 'text' || ((k as Text).value ?? '') !== '');
+    const out: Node[] = [];
+    if (lead) out.push({ type: 'text', value: lead } as Text);
+    if (content.length > 0) out.push({ ...mark, children: content } as Parent);
+    if (trail) out.push({ type: 'text', value: trail } as Text);
+    return out;
+}
+
 /**
  * Serialize a run of phrasing children. `atLineStart` says whether the first
  * character lands at the start of a source line; `outer` is the delimiter
  * character of an enclosing emphasis/strong, if any.
  */
 export function serializeInline(
-    children: readonly Node[] | undefined,
+    input: readonly Node[] | undefined,
     state: State,
     atLineStart: boolean,
     outer?: string,
 ): string {
-    if (!children || children.length === 0) return '';
+    if (!input || input.length === 0) return '';
+    const children = hoistMarkWhitespace(input, state);
     const n = children.length;
     const parts: string[] = [];
     // Emphasis content is kept aside so the delimiter can be chosen once the

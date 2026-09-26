@@ -41,7 +41,7 @@ const BlockHandle = component<{ blockKey: string }>(({ props }) => {
         view.openBlockMenu(props.blockKey, e.currentTarget as HTMLElement);
     };
     return () => (
-        <button {...editorPart('handle')} type="button" tabIndex={-1} aria-label="Block options" aria-haspopup="menu" onPointerDown={onPointerDown} onClick={onClick}>
+        <button {...editorPart('handle')} type="button" tabIndex={-1} contentEditable="false" aria-label="Block options" aria-haspopup="menu" onPointerDown={onPointerDown} onClick={onClick}>
             <span aria-hidden="true">⋮⋮</span>
         </button>
     );
@@ -53,6 +53,7 @@ function wrapperAttrs(view: EditorView, node: EditorBlock): Record<string, unkno
         'data-type': node.type,
         'data-key': node.key,
         'data-selected': flag(view.selectedKeys.value.has(node.key!)),
+        'data-in-range': flag(view.rangeKeys.value.has(node.key!)),
     };
 }
 
@@ -73,7 +74,7 @@ const VoidBlock = component<{ block: EditorBlock }>(({ props }) => {
         const rendered = renderBlock(node, ctx, key);
         const label = editor.schema.get(node.type)?.menu?.label ?? node.type;
         return (
-            <div {...editorPart('void')} data-type={node.type} data-key={key} role="group" aria-label={label} onPointerDown={onPointerDown}>
+            <div {...editorPart('void')} data-type={node.type} data-key={key} role="group" aria-label={label} contentEditable="false" onPointerDown={onPointerDown}>
                 {rendered ?? <span>{node.type}</span>}
             </div>
         );

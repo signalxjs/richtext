@@ -8,6 +8,27 @@ workspace shares one version line.
 
 ### Added
 
+- **Select across blocks in the DOM editor** (#66, part of #57).
+  - **How to select**: drag across blocks, press Shift+Arrow past a block's
+    edge, or Shift+click another block. Each block keeps its own
+    contenteditable.
+  - **How it works**: while a range is selected, the content element becomes
+    the editing host (`data-multi`), so the browser paints one native
+    selection. Every key, input, paste and drop goes to the core's range
+    commands, so the browser never edits structure. The DOM selection is read
+    back into the model (`domPointToModel`), and the model's range is painted
+    back after every transaction.
+  - **Copy/cut** of a range writes every clipboard flavour. In read-only mode
+    a native selection across blocks copies the same way.
+  - **Styling**: code, void and table blocks inside a range get
+    `data-in-range`. Block chrome (handles, void blocks, code wrappers) is
+    `contenteditable="false"`.
+  - **Behaviour change**: Shift+Up/Down from text extends a text selection
+    across blocks instead of starting a block selection. Escape still selects
+    whole blocks.
+  - **Engines**: Chromium (CI) and WebKit are covered by the playground e2e.
+    Firefox hardening follows.
+  - **Size**: the `./editor/dom` limit goes from 36 to 38 kB (36.97 kB).
 - **Formatting over a cross-block range** (#64, part of #57).
   - `toggleMark`, `setLink` and `unsetLink` work on every text segment of the
     range. A mark counts as active only when it covers all of them.

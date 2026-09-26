@@ -12,6 +12,8 @@ import { computed, signal, type Computed, type PrimitiveSignal } from '@sigx/rea
 import { defineInjectable } from '@sigx/runtime-core';
 import type { Editor } from '../editor.js';
 import { selectedBlockKeys } from '../commands.js';
+import { rangeBlocks } from '../range.js';
+import { isCrossBlock } from '../state.js';
 import type { AnySurface } from '../surface.js';
 import type { ContainerView } from './containers.js';
 import type { AtomRenderer } from './inline-dom.js';
@@ -41,6 +43,8 @@ export interface EditorView {
     readonly containers: ReadonlyMap<string, ContainerView>;
     /** Keys of the blocks in the current block selection (empty for a text selection). */
     readonly selectedKeys: Computed<ReadonlySet<string>>;
+    /** Keys of the code, void and table blocks inside a cross-block text range — they show no native highlight (`data-in-range`). */
+    readonly rangeKeys: Computed<ReadonlySet<string>>;
     readOnly(): boolean;
     /** The placeholder for the single empty first block. */
     placeholder(): string | undefined;
@@ -90,6 +94,14 @@ export function createEditorView(opts: CreateViewOptions): EditorView {
         return new Set(selectedBlockKeys(editor.state));
     });
 
+    const rangeKeys = computed<ReadonlySet<string>>(() => {
+        track(editor.selRev.value, editor.rev.value);
+        const state = editor.state;
+        const sel = state.selection;
+        if (!sel || sel.mode !== 'text' || !isCrossBlock(sel)) return new Set();
+        return new Set(rangeBlocks(state, sel, editor.ctx).filter((b) => b.role !== 'textblock').map((b) => b.key));
+    });
+
     let blockMenu: BlockMenuRequest | null = null;
     const blockMenuRev = signal(0);
 
@@ -122,6 +134,7 @@ export function createEditorView(opts: CreateViewOptions): EditorView {
         atoms: opts.atoms,
         containers: opts.containers,
         selectedKeys,
+        rangeKeys,
         readOnly: opts.readOnly,
         placeholder: opts.placeholder,
         handles: opts.handles,

@@ -6,7 +6,8 @@
  * `data-scope="richtext-toolbar"`, `data-scope="richtext-block-menu"` and
  * `data-scope="richtext-suggest"` with `data-part="<name>"`; state is
  * `data-state="on|off"` on toolbar buttons and bare flags (`data-selected`,
- * `data-empty`, `data-readonly`, `data-active`). Tokens come from
+ * `data-in-range`, `data-multi`, `data-empty`, `data-readonly`,
+ * `data-active`). Tokens come from
  * `styles.css` (`--md-*`).
  */
 
@@ -37,6 +38,16 @@
 
 [data-scope='richtext-editor'][data-part='block'][data-selected],
 [data-scope='richtext-editor'][data-part='list-item'][data-selected] {
+    background: color-mix(in srgb, var(--md-accent) 14%, transparent);
+}
+
+/* A text range across blocks: the content is the editing host (`data-multi`);
+ * blocks that show no native highlight (code, void, table) are flagged. */
+[data-scope='richtext-editor'][data-part='content'][data-multi] {
+    outline: none;
+}
+
+[data-scope='richtext-editor'][data-part='block'][data-in-range] {
     background: color-mix(in srgb, var(--md-accent) 14%, transparent);
 }
 

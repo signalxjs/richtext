@@ -41,7 +41,7 @@ workspace shares one version line.
   typed at the end of a bold run (`strong` over `world `) serialized as
   `**world **`, which CommonMark does not parse as strong, so the bold was
   lost on the round-trip. Leading and trailing whitespace of `strong`,
-  `emphasis` and `delete` now moves outside the delimiters (`**world** `),
+  `emphasis` and `delete` now move outside the delimiters (`**world** `),
   through nested marks too, and a mark holding only whitespace is dropped.
 
 ## [0.4.0] - 2026-09-18

@@ -13,6 +13,7 @@
  */
 
 import type { Delete, Emphasis, Image, ImageReference, InlineCode, Link, LinkReference, Literal, Node, Parent, Strong, Text } from '@sigx/richtext';
+import { isUnicodeWhitespace } from '@sigx/richtext';
 import type { SerializeContext, SerializeRule } from '../plugin/markdown.js';
 import { escapeLabel, escapeLinkDest, escapeText, longestRun, quoteTitle } from './escape.js';
 import type { ToMarkdownOptions } from './to-markdown.js';
@@ -87,8 +88,18 @@ function edgeAfter(parts: readonly string[], i: number, fallback: string | undef
 /** The marks whose delimiters must not touch whitespace on the inside. */
 const FLANKED: ReadonlySet<string> = new Set(['emphasis', 'strong', 'delete']);
 
-const LEADING_WS = /^\s+/;
-const TRAILING_WS = /\s+$/;
+/** Leading / trailing CommonMark Unicode whitespace (the parser's flanking definition). */
+function leadingWhitespace(value: string): string {
+    let i = 0;
+    while (i < value.length && isUnicodeWhitespace(value[i])) i++;
+    return value.slice(0, i);
+}
+
+function trailingWhitespace(value: string): string {
+    let i = value.length;
+    while (i > 0 && isUnicodeWhitespace(value[i - 1])) i--;
+    return value.slice(i);
+}
 
 /**
  * Move whitespace at the inner edges of emphasis / strong / delete out to
@@ -122,14 +133,14 @@ function hoistMark(mark: Parent, state: State): Node[] | null {
     const first = kids[0];
     if (first?.type === 'text') {
         const value = (first as Text).value ?? '';
-        lead = LEADING_WS.exec(value)?.[0] ?? '';
+        lead = leadingWhitespace(value);
         if (lead) kids[0] = { ...first, value: value.slice(lead.length) } as Text;
     }
     const lastIndex = kids.length - 1;
     const last = kids[lastIndex];
     if (last?.type === 'text') {
         const value = (last as Text).value ?? '';
-        trail = TRAILING_WS.exec(value)?.[0] ?? '';
+        trail = trailingWhitespace(value);
         if (trail) kids[lastIndex] = { ...last, value: value.slice(0, value.length - trail.length) } as Text;
     }
     if (!lead && !trail && inner === mark.children) return null;

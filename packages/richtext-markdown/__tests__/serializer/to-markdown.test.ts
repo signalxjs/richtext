@@ -169,6 +169,13 @@ describe('toMarkdown — inline', () => {
         expect(strip(parseMarkdown(out))).toEqual(strip(root(p('hello ', strong('world'), ' again'))));
     });
 
+    it('hoists only CommonMark whitespace, not every JS \\s character (#18)', () => {
+        // U+FEFF matches \s but is not Unicode whitespace to CommonMark.
+        expect(md(p('a ', strong('b\uFEFF'), 'c'))).toBe('a **b\uFEFF**c\n');
+        // U+00A0 (Zs) is.
+        expect(md(p('a ', strong('b\u00A0'), 'c'))).toBe('a **b**\u00A0c\n');
+    });
+
     it('drops a mark that holds only whitespace, keeping the whitespace (#18)', () => {
         expect(md(p('a', strong(' '), 'b'))).toBe('a b\n');
         expect(md(p('a', em(strong('  ')), 'b'))).toBe('a  b\n');

@@ -10,7 +10,7 @@
 import type { BlockContent, List, ListItem, PhrasingContent, Table, TableCell, TableRow } from '../ast/index.js';
 import type { InlineFlat } from './inline-flat.js';
 import { addMark, removeMark, sliceFlat, toInline } from './inline-flat.js';
-import { chain, entryOf, firstEditable, inlineFlat, insertAtom, insertBlockAfter, joinTextBackward, keyAt, lengthOf, meta, selectedBlockKeys, setBlockType, splitTextBlock, textSel, toggleMark, type Command, type CommandContext, type Dispatch } from './commands.js';
+import { chain, deleteRange, overRange, entryOf, firstEditable, inlineFlat, insertAtom, insertBlockAfter, joinTextBackward, keyAt, lengthOf, meta, selectedBlockKeys, setBlockType, splitTextBlock, textSel, toggleMark, type Command, type CommandContext, type Dispatch } from './commands.js';
 import type { BlockEntry, EditorSelection, EditorState } from './state.js';
 import { blockSelection, isCrossBlock, selectionRange, textSelection } from './state.js';
 import type { Step } from './steps.js';
@@ -215,11 +215,13 @@ export const liftOutOfBlockquoteAtStart: Command = (state, dispatch, ctx) => {
     return liftOutOfBlockquote(state, dispatch, ctx);
 };
 
-/** Enter: the list and quote behaviour, then the generic split. */
-export const splitBlock: Command = chain(splitListItem, liftOutOfBlockquoteAtEnd, splitTextBlock);
+const splitAtCaret: Command = chain(splitListItem, liftOutOfBlockquoteAtEnd, splitTextBlock);
 
-/** Backspace at offset 0: the list and quote behaviour, then the generic join. */
-export const joinBackward: Command = chain(joinBackwardInList, liftOutOfBlockquoteAtStart, joinTextBackward);
+/** Enter: over a cross-block range, delete it first; then the list and quote behaviour, then the generic split. */
+export const splitBlock: Command = chain(overRange(splitAtCaret), splitAtCaret);
+
+/** Backspace: a cross-block range is deleted; at offset 0, the list and quote behaviour, then the generic join. */
+export const joinBackward: Command = chain(deleteRange, joinBackwardInList, liftOutOfBlockquoteAtStart, joinTextBackward);
 
 // ---------------------------------------------------------------------------
 // Lists

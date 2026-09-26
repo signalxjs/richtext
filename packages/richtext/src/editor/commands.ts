@@ -19,12 +19,16 @@ import type { NodeSpec, Schema } from '../schema/index.js';
 import type { InlineFlat } from './inline-flat.js';
 import { ATOM_CHAR, concatFlat, marksAt, sliceFlat, toFlat, toInline, toggleMark as toggleFlatMark } from './inline-flat.js';
 import { pickPasteFormat, type PasteData } from './paste.js';
-import type { BlockEntry, EditorBlock, EditorSelection, EditorState, TextSelection } from './state.js';
-import { blockSelection, isCrossBlock, normalizeDoc, selectionRange, textSelection } from './state.js';
+import type { BlockEntry, EditorBlock, EditorSelection, EditorState, Point, TextSelection } from './state.js';
+import { blockSelection, isCrossBlock, normalizeDoc, selectionEquals, selectionRange, textRange, textSelection } from './state.js';
 import type { Step } from './steps.js';
 import { flatOf } from './steps.js';
 import type { Transaction, TransactionMeta } from './transaction.js';
 import { applyTransaction } from './transaction.js';
+import { clipboardRoot, entryOf, firstEditable, lastEditable, lengthOf, ownAttrs, siblingRun, stripKeys } from './blocks.js';
+import { normalizeTextRange, rangeBlocks, sliceDoc, type RangeBlock } from './range.js';
+
+export { entryOf, firstEditable, lastEditable, lengthOf, ownAttrs, stripKeys };
 
 export interface CommandContext {
     schema: Schema;
@@ -63,6 +67,33 @@ export function sequence(first: Command, second: Command): Command {
     };
 }
 
+/** The selection is a text range across blocks. */
+export function crossBlock(state: EditorState): boolean {
+    const sel = state.selection;
+    return !!sel && sel.mode === 'text' && isCrossBlock(sel);
+}
+
+/**
+ * Over a cross-block range: delete it, then run `command` at the collapsed
+ * caret — one transaction. Otherwise does not apply. A grouped result (typing)
+ * is bound to the caret's block, so the keystrokes that follow merge into the
+ * same undo entry and one undo restores the range.
+ */
+export function overRange(command: Command): Command {
+    return (state, dispatch, ctx) =>
+        crossBlock(state) &&
+        sequence(deleteRange, command)(
+            state,
+            dispatch &&
+                ((tr) => {
+                    const sel = tr.selection;
+                    const key = tr.meta.group && !tr.meta.sourceKey && sel?.mode === 'text' ? sel.head.key : undefined;
+                    dispatch(key ? { ...tr, meta: { ...tr.meta, sourceKey: key } } : tr);
+                }),
+            ctx,
+        );
+}
+
 /** The first command that applies wins (the ProseMirror `chainCommands`). */
 export function chain(...commands: readonly Command[]): Command {
     return (state, dispatch, ctx) => {
@@ -81,10 +112,6 @@ export function textSel(state: EditorState): TextSelection | null {
     return sel && sel.mode === 'text' && !isCrossBlock(sel) ? sel : null;
 }
 
-export function entryOf(state: EditorState, key: string): BlockEntry | undefined {
-    return state.index().get(key);
-}
-
 export function specOf(node: { type: string }, ctx: CommandContext): NodeSpec | undefined {
     return ctx.schema.get(node.type);
 }
@@ -100,40 +127,6 @@ export function isTextBlock(state: EditorState, key: string, ctx: CommandContext
     return !!entry && ctx.schema.role(entry.node.type) === 'textblock';
 }
 
-/** First editable descendant of a block (or itself). */
-export function firstEditable(node: EditorBlock, ctx: CommandContext): EditorBlock | undefined {
-    const role = ctx.schema.role(node.type);
-    if (role === 'textblock' || role === 'code') return node;
-    const spec = ctx.schema.get(node.type);
-    if (spec?.entry) {
-        const e = spec.entry(node);
-        if (e) return firstEditable(e as EditorBlock, ctx);
-    }
-    for (const child of (node as { children?: EditorBlock[] }).children ?? []) {
-        const found = firstEditable(child, ctx);
-        if (found) return found;
-    }
-    return undefined;
-}
-
-export function lastEditable(node: EditorBlock, ctx: CommandContext): EditorBlock | undefined {
-    const role = ctx.schema.role(node.type);
-    if (role === 'textblock' || role === 'code') return node;
-    const children = (node as { children?: EditorBlock[] }).children ?? [];
-    for (let i = children.length - 1; i >= 0; i--) {
-        const found = lastEditable(children[i], ctx);
-        if (found) return found;
-    }
-    return undefined;
-}
-
-export function lengthOf(node: EditorBlock, ctx: CommandContext): number {
-    const role = ctx.schema.role(node.type);
-    if (role === 'code') return (node as { value: string }).value.length;
-    if (role === 'textblock') return toFlat((node as { children: PhrasingContent[] }).children, ctx.schema).text.length;
-    return 0;
-}
-
 /** An empty block of the schema's default type (a paragraph in the standard vocabulary). */
 export function defaultBlock(ctx: CommandContext, children: PhrasingContent[] = []): BlockContent {
     const spec = ctx.schema.get(ctx.schema.defaultBlock);
@@ -143,13 +136,6 @@ export function defaultBlock(ctx: CommandContext, children: PhrasingContent[] = 
 /** The key a node will have after `insertBlock` under `parentKey` at `index`. */
 export function keyAt(parentKey: string | null, index: number): string {
     return parentKey === null ? `b-${index}` : `${parentKey}.${index}`;
-}
-
-/** A block's own attributes (everything but type, key, children, position, value). */
-export function ownAttrs(node: EditorBlock): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(node)) if (k !== 'type' && k !== 'key' && k !== 'children' && k !== 'position' && k !== 'value') out[k] = v;
-    return out;
 }
 
 function isolating(type: string, ctx: CommandContext): boolean {
@@ -186,10 +172,6 @@ export function relKey(key: string, node: EditorBlock | BlockContent, target: Ed
     return '';
 }
 
-export function stripKeys<T>(node: T): T {
-    return JSON.parse(JSON.stringify(node, (k, v) => (k === 'key' || k === 'position' ? undefined : v)));
-}
-
 export function topLevelOf(state: EditorState, entry: BlockEntry): BlockEntry {
     let cur = entry;
     while (cur.parentKey !== null) cur = entryOf(state, cur.parentKey)!;
@@ -204,6 +186,7 @@ export function topLevelOf(state: EditorState, entry: BlockEntry): BlockEntry {
 export const insertText =
     (text: string, opts: { group?: string; origin?: TransactionMeta['origin'] } = {}): Command =>
     (state, dispatch, ctx) => {
+        if (crossBlock(state)) return overRange(insertText(text, opts))(state, dispatch, ctx);
         const sel = textSel(state);
         if (!sel) return false;
         const key = sel.anchor.key;
@@ -272,6 +255,7 @@ export const toggleMark =
 export const insertAtom =
     (type: string, attrs: Record<string, string>, replace?: { from: number; to: number }): Command =>
     (state, dispatch, ctx) => {
+        if (!replace && crossBlock(state)) return overRange(insertAtom(type, attrs))(state, dispatch, ctx);
         const sel = textSel(state);
         if (!sel) return false;
         const key = sel.anchor.key;
@@ -283,6 +267,7 @@ export const insertAtom =
     };
 
 export const insertHardBreak: Command = (state, dispatch, ctx) => {
+    if (crossBlock(state)) return overRange(insertHardBreak)(state, dispatch, ctx);
     const sel = textSel(state);
     if (!sel) return false;
     const entry = entryOf(state, sel.anchor.key);
@@ -302,6 +287,7 @@ export const insertHardBreak: Command = (state, dispatch, ctx) => {
  * quote behaviour runs first through `splitBlock` in `commands-standard.ts`.
  */
 export const splitTextBlock: Command = (state, dispatch, ctx) => {
+    if (crossBlock(state)) return overRange(splitTextBlock)(state, dispatch, ctx);
     const sel = textSel(state);
     if (!sel) return false;
     const key = sel.anchor.key;
@@ -373,6 +359,7 @@ export const joinTextBackward: Command = (state, dispatch, ctx) => {
 
 /** Delete at the end: join the next editable block into this one. */
 export const joinForward: Command = (state, dispatch, ctx) => {
+    if (crossBlock(state)) return deleteRange(state, dispatch, ctx);
     const sel = textSel(state);
     if (!sel) return false;
     const key = sel.anchor.key;
@@ -393,6 +380,159 @@ export const joinForward: Command = (state, dispatch, ctx) => {
     dispatch?.({ steps, selection: textSelection(key, flat.text.length), meta: meta() });
     return true;
 };
+
+// ---------------------------------------------------------------------------
+// Ranges across blocks
+// ---------------------------------------------------------------------------
+
+/**
+ * Delete a cross-block text range (Backspace/Delete, and the first half of
+ * typing, Enter or paste over one). When both ends are text blocks they join:
+ * the start block keeps its text before the range and takes the end block's
+ * text after it. Otherwise (an end is a code block) each end is trimmed on its
+ * own. Every block in between goes; containers left empty collapse; a table
+ * inside the range goes whole. The caret lands where the range started.
+ * A range that `normalizeTextRange` shrinks to one block deletes inside it.
+ */
+export const deleteRange: Command = (state, dispatch, ctx) => {
+    const raw = state.selection;
+    if (!raw || raw.mode !== 'text' || !isCrossBlock(raw)) return false;
+    const sel = normalizeTextRange(state, raw, ctx);
+    if (!isCrossBlock(sel)) return insertText('', { group: undefined })({ ...state, selection: sel }, dispatch, ctx);
+    const covered = rangeBlocks(state, sel, ctx);
+    // A stale selection (a key no longer in the document) covers nothing.
+    if (!covered.length) return false;
+    const start = covered[0];
+    const end = covered[covered.length - 1];
+    const steps: Step[] = [];
+    let cur = state;
+    const push = (more: Step[]): void => {
+        for (const step of more) {
+            steps.push(step);
+            cur = applyTransaction(cur, { steps: [step], selection: null, meta: meta() }, ctx).state;
+        }
+    };
+    const trim = (block: RangeBlock, keep: 'head' | 'tail'): void => {
+        const node = entryOf(cur, block.key)!.node;
+        if (ctx.schema.role(node.type) === 'code') {
+            const value = (node as { value: string }).value;
+            const next = keep === 'head' ? value.slice(0, block.from) : value.slice(block.to);
+            if (next !== value) push([{ type: 'setValue', key: block.key, value: next }]);
+            return;
+        }
+        const flat = inlineFlat(cur, block.key, ctx)!;
+        const next = keep === 'head' ? sliceFlat(flat, 0, block.from) : sliceFlat(flat, block.to, flat.text.length);
+        if (next.text.length !== flat.text.length) push([{ type: 'setInline', key: block.key, flat: next }]);
+    };
+    // The end block goes first: it is last in document order, so no earlier key shifts.
+    if (start.role === 'textblock' && end.role === 'textblock') {
+        const head = sliceFlat(inlineFlat(cur, start.key, ctx)!, 0, start.from);
+        const endFlat = inlineFlat(cur, end.key, ctx)!;
+        push([{ type: 'setInline', key: start.key, flat: concatFlat(head, sliceFlat(endFlat, end.to, endFlat.text.length)) }]);
+        push(removeSteps(cur, entryOf(cur, end.key)!, ctx));
+    } else {
+        trim(end, 'tail');
+        trim(start, 'head');
+    }
+    // Then the outermost fully covered blocks in between, last first.
+    for (const key of coveredTops(state, covered.slice(1, -1).map((b) => b.key), ctx).reverse()) {
+        const entry = entryOf(cur, key);
+        if (entry) push(removeSteps(cur, entry, ctx));
+    }
+    dispatch?.({ steps, selection: textSelection(start.key, start.from), meta: meta() });
+    return true;
+};
+
+/**
+ * The outermost blocks whose every leaf is in `leaves` (a leaf: a text, code
+ * or void block, or a whole table), in document order — what removing those
+ * leaves removes, so a list whose items are all covered goes as one block.
+ */
+function coveredTops(state: EditorState, leaves: readonly string[], ctx: CommandContext): string[] {
+    const set = new Set(leaves);
+    const index = state.index();
+    const keys = index.keys();
+    const leavesOf = (key: string): string[] => {
+        const out: string[] = [];
+        let skip: string | null = null;
+        for (let i = index.position(key); i < keys.length && (keys[i] === key || keys[i].startsWith(key + '.')); i++) {
+            const k = keys[i];
+            if (skip !== null && k.startsWith(skip)) continue;
+            skip = null;
+            const role = ctx.schema.role(index.get(k)!.node.type);
+            if (role === 'table') skip = k + '.';
+            if (role === 'table' || role === 'void' || role === 'textblock' || role === 'code') out.push(k);
+        }
+        return out;
+    };
+    const tops = new Set<string>();
+    for (const leaf of leaves) {
+        let top = entryOf(state, leaf)!;
+        while (top.parentKey !== null) {
+            const parent = entryOf(state, top.parentKey)!;
+            if (!leavesOf(parent.node.key!).every((k) => set.has(k))) break;
+            top = parent;
+        }
+        tops.add(top.node.key!);
+    }
+    return [...tops].sort((a, b) => index.position(a) - index.position(b));
+}
+
+/**
+ * What the selection copies, as a document: a text range through `sliceDoc`
+ * (one block or many), a block selection through `blocksToRoot`. `null` for
+ * a collapsed caret or no selection. The host hands it to the clipboard
+ * writers (`editor.clipboard(root)`).
+ */
+export function copySelection(state: EditorState, ctx: CommandContext): Root | null {
+    const sel = state.selection;
+    if (!sel) return null;
+    if (sel.mode === 'block') return blocksToRoot(state, selectedBlockKeys(state), ctx);
+    if (!isCrossBlock(sel) && sel.anchor.offset === sel.head.offset) return null;
+    return sliceDoc(state, sel, ctx);
+}
+
+/** Remove what `copySelection` copied: a range, a text selection's text, or the selected blocks. */
+export const cutSelection: Command = (state, dispatch, ctx) => {
+    const sel = state.selection;
+    if (!sel) return false;
+    if (sel.mode === 'block') return deleteBlock(state, dispatch, ctx);
+    if (isCrossBlock(sel)) return deleteRange(state, dispatch, ctx);
+    if (sel.anchor.offset === sel.head.offset) return false;
+    return insertText('', { group: undefined })(state, dispatch, ctx);
+};
+
+/**
+ * Shift+Up/Down across blocks, platform-neutral: move a text selection's head
+ * into the previous/next editable block (the view supplies the x-goal offset
+ * through `offsetAt`; without it, the start going down and the end going up).
+ * With no neighbour the head goes to its own block's edge. Void blocks and
+ * tables in between join the range whole (`normalizeTextRange`).
+ */
+export const extendSelectionToNeighbour =
+    (dir: 'up' | 'down', offsetAt?: (key: string, edge: 'first' | 'last') => number): Command =>
+    (state, dispatch, ctx) => {
+        const sel = state.selection;
+        if (!sel || sel.mode !== 'text') return false;
+        const own = entryOf(state, sel.head.key);
+        if (!own || !entryOf(state, sel.anchor.key)) return false;
+        const index = state.index();
+        const next = dir === 'down' ? index.nextEditable(sel.head.key) : index.prevEditable(sel.head.key);
+        const nextEntry = next ? entryOf(state, next) : undefined;
+        let head: Point;
+        if (next && nextEntry) {
+            const len = lengthOf(nextEntry.node, ctx);
+            const fallback = dir === 'down' ? 0 : len;
+            head = { key: next, offset: Math.max(0, Math.min(offsetAt?.(next, dir === 'down' ? 'first' : 'last') ?? fallback, len)) };
+        } else {
+            head = { key: sel.head.key, offset: dir === 'down' ? lengthOf(own.node, ctx) : 0 };
+            if (head.offset === sel.head.offset) return false;
+        }
+        const selection = normalizeTextRange(state, textRange(sel.anchor, head), ctx);
+        if (selectionEquals(selection, sel)) return false;
+        dispatch?.({ steps: [], selection, meta: meta() });
+        return true;
+    };
 
 /** Convert the current block (or every block in a block selection) to another text/code type. */
 export const setBlockType =
@@ -430,13 +570,6 @@ function clampSelection(sel: TextSelection, steps: Step[], ctx: CommandContext):
     return { mode: 'text', anchor: clamp(sel.anchor), head: clamp(sel.head) };
 }
 
-/** `entry` and its ancestors, outermost first. */
-function pathOf(state: EditorState, entry: BlockEntry): BlockEntry[] {
-    const path = [entry];
-    while (path[0].parentKey !== null) path.unshift(entryOf(state, path[0].parentKey)!);
-    return path;
-}
-
 /**
  * Keys the current selection covers: the text block, or the blocks of a block
  * selection. A block selection whose ends have different parents is lifted to
@@ -451,24 +584,6 @@ export function selectedBlockKeys(state: EditorState): string[] {
     return siblingRun(state, sel.anchorKey, sel.headKey);
 }
 
-/** The sibling run between two blocks at their lowest common parent (see `selectedBlockKeys`), in document order. */
-function siblingRun(state: EditorState, anchorKey: string, headKey: string): string[] {
-    const a = entryOf(state, anchorKey);
-    const h = entryOf(state, headKey);
-    if (!a || !h) return a ? [anchorKey] : [];
-    const pa = pathOf(state, a);
-    const ph = pathOf(state, h);
-    let depth = 0;
-    while (depth < pa.length && depth < ph.length && pa[depth].node.key === ph[depth].node.key) depth++;
-    // One end is (or contains) the other.
-    if (depth === pa.length || depth === ph.length) return [pa[depth - 1].node.key!];
-    const x = pa[depth];
-    const y = ph[depth];
-    const siblings = (x.parent as { children: EditorBlock[] }).children;
-    const [from, to] = x.index <= y.index ? [x.index, y.index] : [y.index, x.index];
-    return siblings.slice(from, to + 1).map((n) => n.key!);
-}
-
 /**
  * A document of the given sibling blocks, for the clipboard. Blocks that
  * cannot stand on their own are wrapped in a copy of the parent they need
@@ -479,15 +594,7 @@ function siblingRun(state: EditorState, anchorKey: string, headKey: string): str
 export function blocksToRoot(state: EditorState, keys: readonly string[], ctx: CommandContext): Root {
     const entries = keys.map((k) => entryOf(state, k)).filter((e): e is BlockEntry => !!e);
     if (!entries.length) return { type: 'root', children: [] };
-    let nodes: EditorBlock[] = entries.map((e) => stripKeys(e.node));
-    let parentKey = entries[0].parentKey;
-    while (parentKey !== null) {
-        const parent = entryOf(state, parentKey)!;
-        if (ctx.schema.get(parent.node.type)?.fillsWith) break;
-        nodes = [{ type: parent.node.type, ...stripKeys(ownAttrs(parent.node)), children: nodes } as EditorBlock];
-        parentKey = parent.parentKey;
-    }
-    return { type: 'root', children: nodes as BlockContent[] };
+    return clipboardRoot(state, entries[0].parentKey, entries.map((e) => stripKeys(e.node)), ctx);
 }
 
 /** Insert a block after the current one and move the caret into it (or select it when void). */
@@ -855,6 +962,7 @@ export const insertBlocks =
     (blocks: BlockContent[]): Command =>
     (state, dispatch, ctx) => {
         if (state.selection?.mode === 'block') return replaceSelectedBlocks(blocks)(state, dispatch, ctx);
+        if (crossBlock(state)) return overRange(insertBlocks(blocks))(state, dispatch, ctx);
         const sel = textSel(state);
         if (!sel || !blocks.length) return false;
         const key = sel.anchor.key;

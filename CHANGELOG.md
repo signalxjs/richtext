@@ -8,6 +8,21 @@ workspace shares one version line.
 
 ### Added
 
+- **Editing over a cross-block range** in `@sigx/richtext/editor` (#62, part of
+  #57).
+  - `deleteRange` joins the two edge text blocks and removes everything in
+    between. Emptied containers collapse, and a table inside the range goes
+    whole. An edge code block is trimmed rather than joined.
+  - Backspace, Delete, typing, Enter, hard break, atoms and paste over a range
+    delete it first, as one transaction. Typing after that merges into the same
+    undo entry.
+  - `sliceDoc` and `copySelection` copy a range with its edge blocks sliced
+    and edge containers pruned; `cutSelection` removes it.
+  - `extendSelectionToNeighbour` (`extendSelectionUp` / `extendSelectionDown`)
+    is a platform-neutral Shift+Up/Down across blocks.
+  - `overRange(command)` runs any command after deleting a range.
+  - Tree helpers moved to `editor/blocks.ts` and are still exported from the
+    commands.
 - **Cross-block selection model** in `@sigx/richtext/editor` (#60, part of
   #57). A `TextSelection` may now span blocks (`anchor.key !== head.key`). New:
   - `textRange`, `isCrossBlock`, `comparePoints` and `BlockIndex.position`;

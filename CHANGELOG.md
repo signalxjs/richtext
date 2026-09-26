@@ -37,6 +37,12 @@ workspace shares one version line.
   - Paste over a block selection did nothing; it now replaces the blocks.
   - `moveBlockUp` / `moveBlockDown` refused a multi-block selection; they now
     move the run.
+- **`toMarkdown` kept whitespace inside emphasis delimiters** (#18). A space
+  typed at the end of a bold run (`strong` over `world `) serialized as
+  `**world **`, which CommonMark does not parse as strong, so the bold was
+  lost on the round-trip. Leading and trailing whitespace of `strong`,
+  `emphasis` and `delete` now moves outside the delimiters (`**world** `),
+  through nested marks too, and a mark holding only whitespace is dropped.
 
 ## [0.4.0] - 2026-09-18
 

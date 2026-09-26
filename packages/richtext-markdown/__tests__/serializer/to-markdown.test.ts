@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BlockContent, AlignType, Blockquote, Break, Code, Definition, Delete, Emphasis, Heading, HeadingDepth, Html, Image, ImageReference, InlineCode, Link, LinkReference, List, ListItem, Node, Paragraph, PhrasingContent, ReferenceType, Root, Strong, Table, TableCell, TableRow, Text, ThematicBreak } from '@sigx/richtext';
 import type { RichTextPlugin } from '@sigx/richtext';
 import { toMarkdown } from '../../src/serializer/index.js';
+import { parseMarkdown } from '../../src/parser/index.js';
+import { strip } from '@sigx/richtext/testing';
 
 // ---------------------------------------------------------------------------
 // Builders (hand-built ASTs — the parser is not involved)
@@ -147,6 +149,35 @@ describe('toMarkdown — inline', () => {
 
     it('drops empty emphasis-like nodes', () => {
         expect(md(p('a', em(), strong(), del(), 'b'))).toBe('ab\n');
+    });
+
+    it('moves whitespace at a mark edge outside the delimiters (#18)', () => {
+        // A closing delimiter after whitespace does not close in CommonMark.
+        expect(md(p('hello ', strong('world '), 'again'))).toBe('hello **world** again\n');
+        // Trailing whitespace at the end of a paragraph is dropped, as before.
+        expect(md(p('hello ', strong('world ')))).toBe('hello **world**\n');
+        expect(md(p('x', strong(' world')))).toBe('x **world**\n');
+        expect(md(p('a', em(' b '), 'c'))).toBe('a *b* c\n');
+        expect(md(p('a', del('b\t'), 'c'))).toBe('a~~b~~\tc\n');
+        // Nested: the inner mark's whitespace moves out through the outer one.
+        expect(md(p('a ', strong(em('b '), 'c '), 'd'))).toBe('a **_b_ c** d\n');
+        expect(md(p(strong('a', em(' b'))))).toBe('**a _b_**\n');
+    });
+
+    it('round-trips a mark that ended in whitespace through the parser (#18)', () => {
+        const out = md(p('hello ', strong('world '), 'again'));
+        expect(strip(parseMarkdown(out))).toEqual(strip(root(p('hello ', strong('world'), ' again'))));
+    });
+
+    it('drops a mark that holds only whitespace, keeping the whitespace (#18)', () => {
+        expect(md(p('a', strong(' '), 'b'))).toBe('a b\n');
+        expect(md(p('a', em(strong('  ')), 'b'))).toBe('a  b\n');
+    });
+
+    it('picks the emphasis delimiter against the neighbours left after hoisting (#18)', () => {
+        // `_` next to a letter could not close; the hoisted space makes it legal.
+        expect(md(p('foo', em(strong('x')), 'bar'))).toBe('foo***x***bar\n');
+        expect(md(p('foo ', em(strong(' x ')), 'bar'))).toBe('foo  _**x**_ bar\n');
     });
 
     it('switches the emphasis delimiter next to a strong of the same character', () => {

@@ -137,7 +137,9 @@ export function createMultiSelection(view: EditorView): MultiSelection {
         active = true;
         content.contentEditable = 'true';
         content.setAttribute('data-multi', '');
-        if (focus) content.focus({ preventScroll: true });
+        // Firefox blurs a focused inner host once its parent becomes the editing host: keep keyboard focus in the content.
+        const d = content.ownerDocument;
+        if (focus || !content.contains(d.activeElement)) content.focus({ preventScroll: true });
     }
 
     function exit(): void {
@@ -382,26 +384,47 @@ export function createMultiSelection(view: EditorView): MultiSelection {
     function shiftClick(e: PointerEvent): boolean {
         const state = editor.state;
         const sel = state.selection;
-        if (!content || !sel || sel.mode !== 'text') return false;
+        if (!content) return false;
+        // The anchor is where the caret is now: the live DOM selection when it is in the content (the model
+        // may not have caught up with the last click — selectionchange is asynchronous), else the model's.
+        let anchor: Point | null = sel && sel.mode === 'text' ? sel.anchor : null;
+        const dom = selectionFor(content);
+        if (dom?.anchorNode && content.contains(dom.anchorNode)) anchor = domPointToModel(view, content, dom.anchorNode, dom.anchorOffset, 'start') ?? anchor;
+        if (!anchor) return false;
         const p = pointFromClient(content.ownerDocument, e.clientX, e.clientY);
         if (!p) return false;
         const index = state.index();
         const probe = domPointToModel(view, content, p.node, p.offset, 'end');
-        if (!probe || (probe.key === sel.anchor.key && !active)) return false;
-        const side = index.position(probe.key) < index.position(sel.anchor.key) ? 'start' : 'end';
+        if (!probe || (probe.key === anchor.key && !active)) return false;
+        const side = index.position(probe.key) < index.position(anchor.key) ? 'start' : 'end';
         const head = side === 'end' ? probe : domPointToModel(view, content, p.node, p.offset, 'start');
         if (!head) return false;
-        editor.setSelection(normalizeTextRange(state, textRange(sel.anchor, head), editor.ctx));
+        editor.setSelection(normalizeTextRange(state, textRange(anchor, head), editor.ctx));
         return true;
     }
 
-    const onFocusOut = (e: FocusEvent): void => {
-        if (!active || !content) return;
-        const next = e.relatedTarget as Node | null;
-        if (next && content.contains(next)) return;
-        const root = view.root();
-        if (next && root?.contains(next)) return;
-        exit();
+    // Focus leaving the editor ends the mode. Checked a task later: toggling the editing host can blur and
+    // re-focus inside the content (Firefox), and a focusout without a related target is not always a real exit.
+    let focusCheck: ReturnType<typeof setTimeout> | null = null;
+    const onFocusOut = (): void => {
+        if (!active || !content || focusCheck !== null) return;
+        focusCheck = setTimeout(() => {
+            focusCheck = null;
+            const root = view.root();
+            if (!active || !content || !root) return;
+            const d = content.ownerDocument;
+            if (root.contains(d.activeElement)) return;
+            // Focus fell to the body (Firefox, after a drag across the new editing host) while the
+            // selection is still ours: take focus back rather than leaving the mode.
+            const sel = selectionFor(content);
+            const ours = !!sel?.anchorNode && content.contains(sel.anchorNode) && !!sel.focusNode && content.contains(sel.focusNode);
+            if ((!d.activeElement || d.activeElement === d.body) && ours) {
+                content.focus({ preventScroll: true });
+                schedulePaint();
+                return;
+            }
+            exit();
+        }, 0);
     };
 
     let unwatch: (() => void) | null = null;

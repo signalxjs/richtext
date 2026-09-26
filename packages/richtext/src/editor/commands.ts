@@ -17,7 +17,7 @@ import { plainTextFormat, type DocumentFormat } from '../document/index.js';
 import type { RichTextPlugin } from '../plugin/index.js';
 import type { NodeSpec, Schema } from '../schema/index.js';
 import type { InlineFlat } from './inline-flat.js';
-import { ATOM_CHAR, concatFlat, marksAt, sliceFlat, toFlat, toInline, toggleMark as toggleFlatMark } from './inline-flat.js';
+import { addMark, ATOM_CHAR, concatFlat, marksAt, removeMark, sliceFlat, toFlat, toInline, toggleMark as toggleFlatMark } from './inline-flat.js';
 import { pickPasteFormat, type PasteData } from './paste.js';
 import type { BlockEntry, EditorBlock, EditorSelection, EditorState, Point, TextSelection } from './state.js';
 import { blockSelection, isCrossBlock, normalizeDoc, selectionEquals, selectionRange, textRange, textSelection } from './state.js';
@@ -26,7 +26,7 @@ import { flatOf } from './steps.js';
 import type { Transaction, TransactionMeta } from './transaction.js';
 import { applyTransaction } from './transaction.js';
 import { clipboardRoot, entryOf, firstEditable, lastEditable, lengthOf, ownAttrs, siblingRun, stripKeys } from './blocks.js';
-import { normalizeTextRange, rangeBlocks, sliceDoc, type RangeBlock } from './range.js';
+import { normalizeTextRange, rangeBlocks, rangeLeafKeys, sliceDoc, textSegments, type RangeBlock } from './range.js';
 
 export { entryOf, firstEditable, lastEditable, lengthOf, ownAttrs, stripKeys };
 
@@ -240,6 +240,7 @@ export const replaceRange =
 export const toggleMark =
     (type: string, attrs?: Record<string, string>): Command =>
     (state, dispatch, ctx) => {
+        if (crossBlock(state)) return toggleMarkOverRange(type, attrs)(state, dispatch, ctx);
         const sel = textSel(state);
         if (!sel) return false;
         const { from, to } = selectionRange(sel);
@@ -250,6 +251,40 @@ export const toggleMark =
         dispatch?.({ steps: [{ type: 'setInline', key: sel.anchor.key, flat: next }], selection: sel, meta: meta() });
         return true;
     };
+
+/**
+ * A mark over a cross-block range: on in every text segment unless it already
+ * covers all of them, in which case off everywhere. One `setInline` per
+ * changed block; the selection stays.
+ */
+const toggleMarkOverRange =
+    (type: string, attrs?: Record<string, string>): Command =>
+    (state, dispatch, ctx) => {
+        const sel = state.selection as TextSelection;
+        const segments = textSegments(state, sel, ctx);
+        if (!segments.length) return false;
+        const active = segments.every((s) => s.flat.spans.some((sp) => sp.type === type && sp.start <= s.from && sp.end >= s.to));
+        const steps: Step[] = segments.map((s) => ({ type: 'setInline', key: s.key, flat: active ? removeMark(s.flat, type, s.from, s.to) : addMark(s.flat, type, s.from, s.to, attrs) }));
+        dispatch?.({ steps, selection: sel, meta: meta() });
+        return true;
+    };
+
+/**
+ * The selection after `steps` that wrap or unwrap blocks without adding or
+ * removing any editable one (lists, quotes): each end moves to the block at
+ * the same place in editable order, keeping its offset.
+ */
+export function remapByEditableOrder(state: EditorState, sel: TextSelection, steps: Step[], ctx: CommandContext): EditorSelection {
+    const before = state.index().editable();
+    const after = applyTransaction(state, { steps, selection: null, meta: meta() }, ctx).state.index().editable();
+    const map = (p: Point): Point | null => {
+        const key = after[before.indexOf(p.key)];
+        return key ? { key, offset: p.offset } : null;
+    };
+    const anchor = map(sel.anchor);
+    const head = map(sel.head);
+    return anchor && head ? textRange(anchor, head) : null;
+}
 
 /** Insert an atom (image, mention, …) at the selection, replacing it. */
 export const insertAtom =
@@ -540,7 +575,9 @@ export const setBlockType =
     (state, dispatch, ctx) => {
         const target = ctx.schema.get(type);
         if (!target || !target.fromInline) return false;
-        const keys = selectedBlockKeys(state);
+        // Over a range: every text and code block in it, inside lists and quotes too.
+        const sel0 = state.selection;
+        const keys = sel0?.mode === 'text' && isCrossBlock(sel0) ? rangeLeafKeys(state, sel0, ctx) : selectedBlockKeys(state);
         if (!keys.length) return false;
         const steps: Step[] = [];
         for (const key of keys) {

@@ -8,6 +8,17 @@ workspace shares one version line.
 
 ### Added
 
+- **Formatting over a cross-block range** (#64, part of #57).
+  - `toggleMark`, `setLink` and `unsetLink` work on every text segment of the
+    range. A mark counts as active only when it covers all of them.
+  - `setBlockType` converts every text and code block in the range.
+  - `toggleList`, `wrapInBlockquote` and `liftOutOfBlockquote` work over its
+    sibling run. Items of one list change that list's kind, or unwrap. The
+    selection follows the blocks (`remapByEditableOrder`).
+  - `ToolbarState` gains `multiBlock`. Over a range, `activeMarks` are the
+    marks on all of its text and `blockType` / `attrs` are the shared values.
+    Code that builds a `ToolbarState` by hand must now set `multiBlock`.
+  - New `textSegments` and `rangeLeafKeys` helpers.
 - **Editing over a cross-block range** in `@sigx/richtext/editor` (#62, part of
   #57).
   - `deleteRange` joins the two edge text blocks and removes everything in

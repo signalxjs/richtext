@@ -13,7 +13,8 @@ import { insertTable, listKindOf, setLink, toggleList, type ListKind } from './c
 import { commands } from './registry.js';
 import { marksAt } from './inline-flat.js';
 import type { BlockEntry, EditorState } from './state.js';
-import { selectionRange } from './state.js';
+import { isCrossBlock, selectionRange } from './state.js';
+import { orderedRange, rangeLeafKeys, textSegments } from './range.js';
 import { flatOf } from './steps.js';
 
 export interface ToolbarState {
@@ -31,6 +32,13 @@ export interface ToolbarState {
     canUndo: boolean;
     canRedo: boolean;
     mode: 'text' | 'block' | 'none';
+    /**
+     * The text selection spans blocks. `activeMarks` are then the marks
+     * covering all of its text, `blockType` / `attrs` the ones every covered
+     * block shares (`null` / `{}` when they differ), and `ancestors`,
+     * `listKind`, `inBlockquote` describe the block where it starts.
+     */
+    multiBlock: boolean;
 }
 
 export interface ToolbarContext {
@@ -93,12 +101,25 @@ function containerInfo(state: EditorState, entry: BlockEntry): { listKind: ListK
     return { listKind, inBlockquote };
 }
 
-const NONE: Omit<ToolbarState, 'canUndo' | 'canRedo'> = { activeMarks: [], blockType: null, attrs: {}, ancestors: [], listKind: null, inBlockquote: false, mode: 'none' };
+const NONE: Omit<ToolbarState, 'canUndo' | 'canRedo'> = { activeMarks: [], blockType: null, attrs: {}, ancestors: [], listKind: null, inBlockquote: false, mode: 'none', multiBlock: false };
+
+/** Two attribute records hold the same keys and values, whatever the key order (values compared as JSON). */
+function sameAttrs(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+    const keys = Object.keys(a).filter((k) => a[k] !== undefined);
+    if (keys.length !== Object.keys(b).filter((k) => b[k] !== undefined).length) return false;
+    return keys.every((k) => k in b && JSON.stringify(a[k]) === JSON.stringify(b[k]));
+}
 
 /** The marks at the caret / covering a text selection (empty for block selections and code). */
 function activeMarksOf(state: EditorState, ctx: CommandContext): string[] {
     const sel = state.selection;
     if (!sel || sel.mode !== 'text') return [];
+    if (isCrossBlock(sel)) {
+        // The marks covering every text segment of the range.
+        const segments = textSegments(state, sel, ctx);
+        if (!segments.length) return [];
+        return segments.map((s) => marksAt(s.flat, s.from, s.to, ctx.schema)).reduce((acc, marks) => acc.filter((m) => marks.includes(m)));
+    }
     const entry = state.index().get(sel.anchor.key);
     if (!entry || ctx.schema.role(entry.node.type) !== 'textblock') return [];
     const { from, to } = selectionRange(sel);
@@ -110,16 +131,27 @@ export function toolbarState(state: EditorState, ctx: CommandContext, history: {
     const sel = state.selection;
     const base = { canUndo: history.canUndo(), canRedo: history.canRedo() };
     if (!sel) return { ...NONE, ...base };
-    const key = sel.mode === 'text' ? sel.anchor.key : sel.anchorKey;
+    const multiBlock = sel.mode === 'text' && isCrossBlock(sel);
+    const key = sel.mode === 'text' ? (multiBlock ? orderedRange(state, sel).from.key : sel.anchor.key) : sel.anchorKey;
     const entry = state.index().get(key);
     if (!entry) return { ...NONE, ...base };
+    let blockType: string | null = entry.node.type;
+    let attrs = ownAttrs(entry.node);
+    if (multiBlock) {
+        // Shared by every covered text / code block, else unset.
+        const nodes = rangeLeafKeys(state, sel, ctx).map((k) => state.index().get(k)!.node);
+        const same = nodes.every((n) => n.type === blockType && sameAttrs(ownAttrs(n), attrs));
+        if (!nodes.every((n) => n.type === blockType)) blockType = null;
+        if (!same) attrs = {};
+    }
     return {
         activeMarks: activeMarksOf(state, ctx),
-        blockType: entry.node.type,
-        attrs: ownAttrs(entry.node),
+        blockType,
+        attrs,
         ancestors: ancestorTypes(state, entry),
         ...containerInfo(state, entry),
         mode: sel.mode,
+        multiBlock,
         ...base,
     };
 }

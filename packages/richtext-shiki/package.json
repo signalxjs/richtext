@@ -51,7 +51,7 @@
         "@sigx/runtime-core": "catalog:",
         "@sigx/runtime-dom": "catalog:",
         "@sigx/vite": "catalog:",
-        "@types/node": "^25.9.1",
+        "@types/node": "^26.6.2",
         "shiki": "^4.4.3",
         "sigx": "catalog:",
         "typescript": "^7.0.2",

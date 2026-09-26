@@ -7,6 +7,16 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 
+/*
+ * Caret movement and select-all are the browser's own, so they follow the HOST's key bindings (macOS
+ * has no Home/End in text, and selects all with Meta), while editor chords (Control+z, …) follow the
+ * emulated Windows user agent of Playwright's Desktop Chrome profile.
+ */
+const MAC_HOST = process.platform === 'darwin';
+const LINE_START = MAC_HOST ? 'Meta+ArrowLeft' : 'Home';
+const LINE_END = MAC_HOST ? 'Meta+ArrowRight' : 'End';
+const SELECT_ALL = MAC_HOST ? 'Meta+a' : 'Control+a';
+
 const editor = (page: Page) => page.locator('#editor[data-part="root"]');
 const block = (page: Page, key: string) => page.locator(`#editor [data-part="inline"][data-key="${key}"]`);
 /** The markdown the editor wrote back: the serializer pane renders `toMarkdown(parseMarkdown(source))`. */
@@ -27,7 +37,7 @@ test.beforeEach(async ({ page }) => {
 test('typing in a paragraph writes back to the bound source and the view follows', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.type(' world');
     await expect(p).toHaveText('hello world');
     await expect(serialized(page)).toHaveText('hello world');
@@ -37,12 +47,12 @@ test('typing in a paragraph writes back to the bound source and the view follows
 test('input rules: "# " makes a heading and **bold** becomes strong as it is typed', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('Home');
+    await page.keyboard.press(LINE_START);
     await page.keyboard.type('# ');
     const h = block(page, 'b-0');
     await expect(h).toHaveJSProperty('tagName', 'H1');
     await expect(h).toHaveText('hello');
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.type(' **big**');
     await expect(h.locator('strong')).toHaveText('big');
     await expect(serialized(page)).toHaveText('# hello **big**');
@@ -51,7 +61,7 @@ test('input rules: "# " makes a heading and **bold** becomes strong as it is typ
 test('Enter splits, Backspace at the start joins, and the caret follows', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.press('ArrowLeft');
     await page.keyboard.press('ArrowLeft');
     await page.keyboard.press('Enter');
@@ -59,7 +69,7 @@ test('Enter splits, Backspace at the start joins, and the caret follows', async 
     await expect(block(page, 'b-1')).toBeFocused();
     await page.keyboard.type('X');
     await expect(block(page, 'b-1')).toHaveText('Xlo');
-    await page.keyboard.press('Home');
+    await page.keyboard.press(LINE_START);
     await page.keyboard.press('Backspace');
     await expect(block(page, 'b-0')).toHaveText('helXlo');
     await expect(block(page, 'b-1')).toHaveCount(0);
@@ -69,7 +79,7 @@ test('Enter splits, Backspace at the start joins, and the caret follows', async 
 test('arrows walk across a code block and Mod-Enter leaves it', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.press('Enter');
     await page.keyboard.type('```');
     await page.keyboard.press('Enter');
@@ -90,7 +100,7 @@ test('arrows walk across a code block and Mod-Enter leaves it', async ({ page })
 test('undo reverts typing and the surface shows the previous content', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.type('!!!');
     await expect(p).toHaveText('hello!!!');
     await page.keyboard.press('Control+z');
@@ -103,7 +113,7 @@ test('undo reverts typing and the surface shows the previous content', async ({ 
 test('the toolbar toggles marks on the selection', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('Control+a');
+    await page.keyboard.press(SELECT_ALL);
     const bold = page.locator('#editor [data-scope="richtext-toolbar"] [data-item="bold"]');
     await expect(bold).toHaveAttribute('data-state', 'off');
     await bold.click();
@@ -111,7 +121,7 @@ test('the toolbar toggles marks on the selection', async ({ page }) => {
     await expect(bold).toHaveAttribute('data-state', 'on');
     await expect(serialized(page)).toHaveText('**hello**');
     // Focus stayed in the surface: keep typing (at the end of a mark the browser extends it).
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.type('!');
     await expect(serialized(page)).toHaveText('**hello!**');
 });
@@ -119,7 +129,7 @@ test('the toolbar toggles marks on the selection', async ({ page }) => {
 test('Escape selects the block, Shift-Down extends, Backspace deletes the selection', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.press('Enter');
     await page.keyboard.type('two');
     await page.keyboard.press('Enter');
@@ -151,7 +161,7 @@ test('the block menu turns a paragraph into a heading', async ({ page }) => {
 test('slash commands insert a divider below the paragraph', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.type(' /div');
     const popup = page.locator('[data-scope="richtext-suggest"][role="listbox"]');
     await expect(popup.locator('[role="option"]')).toHaveText(['Divider']);
@@ -164,7 +174,7 @@ test('slash commands insert a divider below the paragraph', async ({ page }) => 
 test('mentions: @ opens the people list and a pick inserts a chip', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.keyboard.type(' @be');
     const popup = page.locator('[data-scope="richtext-suggest"][role="listbox"]');
     await expect(popup.locator('[role="option"]')).toHaveText(['Bea']);
@@ -181,7 +191,7 @@ test('mentions: @ opens the people list and a pick inserts a chip', async ({ pag
 test('pasting HTML parses the text/html flavour over text/plain', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.evaluate(() => {
         const dt = new DataTransfer();
         dt.setData('text/plain', 'plain text that must not win');
@@ -195,7 +205,7 @@ test('pasting HTML parses the text/html flavour over text/plain', async ({ page 
 test('pasting markdown inserts blocks', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
-    await page.keyboard.press('End');
+    await page.keyboard.press(LINE_END);
     await page.evaluate(() => {
         const dt = new DataTransfer();
         dt.setData('text/plain', '\n\n## Pasted\n\n- a\n- b');

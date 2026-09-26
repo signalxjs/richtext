@@ -103,6 +103,13 @@ function containerInfo(state: EditorState, entry: BlockEntry): { listKind: ListK
 
 const NONE: Omit<ToolbarState, 'canUndo' | 'canRedo'> = { activeMarks: [], blockType: null, attrs: {}, ancestors: [], listKind: null, inBlockquote: false, mode: 'none', multiBlock: false };
 
+/** Two attribute records hold the same keys and values, whatever the key order (values compared as JSON). */
+function sameAttrs(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+    const keys = Object.keys(a).filter((k) => a[k] !== undefined);
+    if (keys.length !== Object.keys(b).filter((k) => b[k] !== undefined).length) return false;
+    return keys.every((k) => k in b && JSON.stringify(a[k]) === JSON.stringify(b[k]));
+}
+
 /** The marks at the caret / covering a text selection (empty for block selections and code). */
 function activeMarksOf(state: EditorState, ctx: CommandContext): string[] {
     const sel = state.selection;
@@ -133,7 +140,7 @@ export function toolbarState(state: EditorState, ctx: CommandContext, history: {
     if (multiBlock) {
         // Shared by every covered text / code block, else unset.
         const nodes = rangeLeafKeys(state, sel, ctx).map((k) => state.index().get(k)!.node);
-        const same = nodes.every((n) => n.type === blockType && JSON.stringify(ownAttrs(n)) === JSON.stringify(attrs));
+        const same = nodes.every((n) => n.type === blockType && sameAttrs(ownAttrs(n), attrs));
         if (!nodes.every((n) => n.type === blockType)) blockType = null;
         if (!same) attrs = {};
     }

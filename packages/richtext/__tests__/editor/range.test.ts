@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { markdownFormat, markdownSchema, parseMarkdown, toMarkdown } from '@sigx/richtext-markdown';
 import { createState, blockSelection, comparePoints, isCrossBlock, textRange, textSelection } from '../../src/editor/state.js';
 import type { EditorSelection, Point } from '../../src/editor/state.js';
+import type { Root } from '../../src/ast/index.js';
 import { normalizeTextRange, orderedRange, rangeBlocks, sliceDoc } from '../../src/editor/range.js';
 import { createEditor } from '../../src/editor/editor.js';
 import { toolbarState } from '../../src/editor/toolbar.js';
@@ -385,5 +386,10 @@ describe('toolbar over a range (#64)', () => {
         expect(tb('## a\n\n# b', pt('b-0', 0), pt('b-1', 1))).toMatchObject({ blockType: 'heading', attrs: {} });
         expect(tb('## a\n\n## b', pt('b-1', 1), pt('b-0', 0))).toMatchObject({ blockType: 'heading', attrs: { depth: 2 } });
         expect(tb('- a\n\nb', pt('b-0.0.0', 0), pt('b-1', 1))).toMatchObject({ listKind: 'bullet', ancestors: ['listItem', 'list'] });
+        // Shared attrs compare by value, whatever order the keys were written in.
+        const code = (lang: string, meta: string, first: boolean) => (first ? { type: 'code', lang, meta, value: 'x' } : { type: 'code', meta, lang, value: 'y' });
+        const doc = { type: 'root', children: [code('ts', 'm', true), code('ts', 'm', false)] } as Root;
+        const s = createState(doc, range(pt('b-0', 0), pt('b-1', 1)), schema);
+        expect(toolbarState(s, ctx, { canUndo: () => false, canRedo: () => false })).toMatchObject({ blockType: 'code', attrs: { lang: 'ts', meta: 'm' } });
     });
 });

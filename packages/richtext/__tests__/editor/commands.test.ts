@@ -480,6 +480,10 @@ describe('block selections (#58)', () => {
         const down = run('a\n\nb\n\nc\n\nd', blockSelection('b-2', 'b-1'), C.moveBlockDown);
         expect(down.md).toBe('a\n\nd\n\nb\n\nc\n');
         expect(down.state.selection).toEqual(blockSelection('b-3', 'b-2'));
+        // A lifted selection keeps its direction too: the ends' own indexes are in different sibling lists.
+        const lifted = run('a\n\nb\n\n- c\n- d\n\ne', blockSelection('b-2.1', 'b-1'), C.moveBlockUp);
+        expect(lifted.md).toBe('b\n\n- c\n- d\n\na\n\ne\n');
+        expect(lifted.state.selection).toEqual(blockSelection('b-1', 'b-0'));
         expect(run('a\n\nb\n\nc', blockSelection('b-0', 'b-1'), C.moveBlockUp).ok).toBe(false);
         expect(run('a\n\nb\n\nc', blockSelection('b-1', 'b-2'), C.moveBlockDown).ok).toBe(false);
     });

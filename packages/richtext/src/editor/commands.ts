@@ -561,8 +561,10 @@ function moveRunBy(state: EditorState, keys: readonly string[], delta: -1 | 1, d
     // `to.index` counts after the neighbour's removal: past the run going up, before it going down.
     const to = delta < 0 ? last.index : first.index;
     const shift = (key: string): string => keyAt(first.parentKey, entryOf(state, key)!.index + delta);
-    // The ends may sit deeper than the run (a lifted selection): re-anchor on the run's ends, keeping the direction.
-    const forward = entryOf(state, sel.anchorKey)!.index <= entryOf(state, sel.headKey)!.index || keys[0] === keys[keys.length - 1];
+    // The ends may sit deeper than the run (a lifted selection): re-anchor on the run's ends, keeping the
+    // direction — read from document order, since the ends' own indexes may be in different sibling lists.
+    const keysInOrder = state.index().keys();
+    const forward = keysInOrder.indexOf(sel.anchorKey) <= keysInOrder.indexOf(sel.headKey);
     const [anchor, head] = forward ? [keys[0], keys[keys.length - 1]] : [keys[keys.length - 1], keys[0]];
     dispatch?.({ steps: [{ type: 'moveBlock', key: siblings[neighbour].key!, to: { parentKey: first.parentKey, index: to } }], selection: blockSelection(shift(anchor), shift(head)), meta: meta() });
     return true;

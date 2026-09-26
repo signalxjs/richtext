@@ -400,6 +400,8 @@ export const deleteRange: Command = (state, dispatch, ctx) => {
     const sel = normalizeTextRange(state, raw, ctx);
     if (!isCrossBlock(sel)) return insertText('', { group: undefined })({ ...state, selection: sel }, dispatch, ctx);
     const covered = rangeBlocks(state, sel, ctx);
+    // A stale selection (a key no longer in the document) covers nothing.
+    if (!covered.length) return false;
     const start = covered[0];
     const end = covered[covered.length - 1];
     const steps: Step[] = [];
@@ -512,15 +514,18 @@ export const extendSelectionToNeighbour =
     (state, dispatch, ctx) => {
         const sel = state.selection;
         if (!sel || sel.mode !== 'text') return false;
+        const own = entryOf(state, sel.head.key);
+        if (!own || !entryOf(state, sel.anchor.key)) return false;
         const index = state.index();
         const next = dir === 'down' ? index.nextEditable(sel.head.key) : index.prevEditable(sel.head.key);
+        const nextEntry = next ? entryOf(state, next) : undefined;
         let head: Point;
-        if (next) {
-            const node = entryOf(state, next)!.node;
-            const fallback = dir === 'down' ? 0 : lengthOf(node, ctx);
-            head = { key: next, offset: Math.min(offsetAt?.(next, dir === 'down' ? 'first' : 'last') ?? fallback, lengthOf(node, ctx)) };
+        if (next && nextEntry) {
+            const len = lengthOf(nextEntry.node, ctx);
+            const fallback = dir === 'down' ? 0 : len;
+            head = { key: next, offset: Math.max(0, Math.min(offsetAt?.(next, dir === 'down' ? 'first' : 'last') ?? fallback, len)) };
         } else {
-            head = { key: sel.head.key, offset: dir === 'down' ? lengthOf(entryOf(state, sel.head.key)!.node, ctx) : 0 };
+            head = { key: sel.head.key, offset: dir === 'down' ? lengthOf(own.node, ctx) : 0 };
             if (head.offset === sel.head.offset) return false;
         }
         const selection = normalizeTextRange(state, textRange(sel.anchor, head), ctx);

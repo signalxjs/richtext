@@ -222,6 +222,17 @@ describe('deleteRange (#62)', () => {
     });
 });
 
+describe('range commands on stale selections (#62 review)', () => {
+    it('deleteRange refuses a range whose keys are not in the document', () => {
+        expect(run('ab\n\ncd', range(pt('b-0', 1), pt('b-9', 1)), C.deleteRange).ok).toBe(false);
+    });
+
+    it('extendSelectionToNeighbour refuses an unknown head and never makes a negative offset', () => {
+        expect(run('ab\n\ncd', range(pt('b-0', 1), pt('b-9', 1)), C.extendSelectionToNeighbour('down')).ok).toBe(false);
+        expect(run('ab\n\ncd', textSelection('b-0', 1), C.extendSelectionToNeighbour('down', () => -5)).state.selection).toEqual(range(pt('b-0', 1), pt('b-1', 0)));
+    });
+});
+
 describe('editing over a range (#62)', () => {
     const sel = range(pt('b-0', 2), pt('b-1', 3));
 

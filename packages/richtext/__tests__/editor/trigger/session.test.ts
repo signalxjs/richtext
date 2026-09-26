@@ -32,6 +32,54 @@ describe('trigger session manager', () => {
         expect(manager.session!.items).toEqual([{ id: 'u1', label: 'Andy' }]);
     });
 
+    describe('literal marks (#17)', () => {
+        const isLiteral = (type: string): boolean => type === 'inlineCode';
+        // Flat text of `` `@` `` followed by typed text: the code span covers [0, 1).
+        const code = [{ start: 0, end: 1, type: 'inlineCode' }];
+
+        it('does not open when the trigger char sits inside a literal span', () => {
+            const { manager, onQuery } = makeManager({ isLiteral });
+            manager.syncText('b-0', '@an', code);
+            manager.syncCaret('b-0', 3);
+            expect(manager.session).toBeNull();
+            expect(onQuery).not.toHaveBeenCalled();
+        });
+
+        it('closes an open session when the trigger char becomes literal', () => {
+            const { manager } = makeManager({ isLiteral });
+            manager.syncText('b-0', '@an', []);
+            manager.syncCaret('b-0', 3);
+            expect(manager.session).not.toBeNull();
+            manager.syncText('b-0', '@an', [{ start: 0, end: 3, type: 'inlineCode' }]);
+            expect(manager.session).toBeNull();
+        });
+
+        it('opens on a trigger char just outside the literal span', () => {
+            const { manager } = makeManager({ isLiteral });
+            manager.syncText('b-0', 'x @an', [{ start: 0, end: 1, type: 'inlineCode' }]);
+            manager.syncCaret('b-0', 5);
+            expect(manager.session).toMatchObject({ anchor: 2, query: 'an' });
+        });
+
+        it('ignores non-literal marks over the trigger char', () => {
+            const { manager } = makeManager({ isLiteral });
+            manager.syncText('b-0', '@an', [{ start: 0, end: 3, type: 'strong' }]);
+            manager.syncCaret('b-0', 3);
+            expect(manager.session).not.toBeNull();
+        });
+
+        it('behaves as before without spans or without an isLiteral predicate', () => {
+            const a = makeManager({ isLiteral });
+            a.manager.syncText('b-0', '@an');
+            a.manager.syncCaret('b-0', 3);
+            expect(a.manager.session).not.toBeNull();
+            const b = makeManager();
+            b.manager.syncText('b-0', '@an', code);
+            b.manager.syncCaret('b-0', 3);
+            expect(b.manager.session).not.toBeNull();
+        });
+    });
+
     it('does not open mid-word (no boundary before the trigger)', () => {
         const { manager } = makeManager();
         manager.syncText('b-0', 'email@');

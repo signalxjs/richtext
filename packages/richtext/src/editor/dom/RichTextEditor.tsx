@@ -266,6 +266,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
     const triggers: TriggerSessionManager | null = editor.triggers.length
         ? createTriggerSessionManager({
               triggers: editor.triggers,
+              isLiteral: (type) => editor.schema.get(type)?.inline?.literal === true,
               onUpdate: (s) => {
                   session = s;
                   sessionRev.value++;
@@ -310,7 +311,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
         if (sel?.mode === 'text') {
             const flat = editor.flatOf(sel.anchor.key);
             if (flat) {
-                triggers.syncText(sel.anchor.key, flat.text);
+                triggers.syncText(sel.anchor.key, flat.text, flat.spans);
                 triggers.syncCaret(sel.anchor.key, sel.anchor.offset === sel.head.offset ? sel.anchor.offset : -1);
                 return;
             }

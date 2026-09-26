@@ -32,13 +32,13 @@ import type { Root } from '../../ast/index.js';
 import type { DocumentFormat } from '../../document/index.js';
 import { createDomComponents, RichTextView, type DomComponents } from '../../dom/index.js';
 import type { RichTextPlugin } from '../../plugin/index.js';
-import { blocksToRoot, deleteBlock, escapeToText, focusEnd, focusNeighbour, selectedBlockKeys, type Command } from '../commands.js';
+import { copySelection, cutSelection, deleteBlock, escapeToText, focusEnd, focusNeighbour, selectedBlockKeys, type Command } from '../commands.js';
 import { createEditor, type Editor } from '../editor.js';
 import type { InputRule } from '../input-rules.js';
 import { keyNames } from '../keys.js';
 import type { Keymap } from '../keymap.js';
 import type { EditorSelection, EditorState } from '../state.js';
-import { textSelection } from '../state.js';
+import { isCrossBlock, textSelection } from '../state.js';
 import type { ToolbarItem } from '../toolbar.js';
 import type { Transaction } from '../transaction.js';
 import { createTriggerSessionManager, type TriggerItem, type TriggerSelectApi, type TriggerSession, type TriggerSessionManager } from '../trigger/index.js';
@@ -52,6 +52,7 @@ import { track } from './context.js';
 import type { AtomRenderer } from './inline-dom.js';
 import { defaultAtomRenderer } from './inline-dom.js';
 import { readPasteData } from './inline-surface.js';
+import { createMultiSelection } from './multi-selection.js';
 import { SuggestionPopup, type SuggestionRenderItem } from './SuggestionPopup.js';
 import { EditorToolbar, type ToolbarRenderItem } from './Toolbar.js';
 import { pluginAtomRenderers, pluginContainerViews } from './plugin-dom.js';
@@ -231,6 +232,8 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
         components,
     });
     defineProvide(useEditorView, () => view);
+    const multi = createMultiSelection(view);
+    const setContent = (el: HTMLElement | null): void => multi.attach(el);
 
     // -- models in -----------------------------------------------------------
 
@@ -255,6 +258,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
             if (editor.readOnly !== ro) {
                 editor.readOnly = ro;
                 for (const s of view.surfaces.values()) s.setReadOnly(ro);
+                multi.sync(editor.state);
             }
         },
     );
@@ -301,6 +305,8 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
     };
 
     const stopListen = editor.listen((tr, state) => {
+        // First: the content element must stop being the editing host before a block takes focus.
+        multi.sync(state);
         syncTriggers(state);
         // A block selection moves keyboard focus to the root (surfaces blur).
         if (state.selection?.mode === 'block' && view.hasFocus() && tr.meta.origin !== 'external') view.focusRoot();
@@ -379,23 +385,35 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
         if (sel?.mode === 'text') view.focusBlock(sel.anchor.key, { edge: 'end' });
     };
 
-    /** Copy a block selection: every flavour the plugins' clipboard writers produce; the primary format as `text/plain` when none sets it. */
-    const onCopy = (e: ClipboardEvent): void => {
+    /** Whether copy / cut go through the editor: a block selection or a text range across blocks (one block's text is the browser's). */
+    const ownsClipboard = (): boolean => {
         const sel = editor.state.selection;
-        if (sel?.mode !== 'block' || !e.clipboardData) return;
-        const root: Root = blocksToRoot(editor.state, selectedBlockKeys(editor.state), editor.ctx);
+        return sel?.mode === 'block' || (sel?.mode === 'text' && isCrossBlock(sel));
+    };
+
+    /**
+     * Copy a block selection or a cross-block range: every flavour the plugins' clipboard writers produce; the
+     * primary format as `text/plain` when none sets it. Whether it wrote anything (cut deletes only then).
+     */
+    const writeClipboard = (e: ClipboardEvent): boolean => {
+        multi.refresh();
+        if (!ownsClipboard() || !e.clipboardData) return false;
+        const root: Root | null = copySelection(editor.state, editor.ctx);
+        if (!root) return false;
         const flavours = editor.clipboard(root);
         if (!flavours.text) flavours.text = serialize(root);
         for (const [mime, value] of Object.entries(flavours)) {
             if (typeof value === 'string') e.clipboardData.setData(mime === 'text' ? 'text/plain' : mime, value);
         }
         e.preventDefault();
+        return true;
     };
 
+    const onCopy = (e: ClipboardEvent): void => void writeClipboard(e);
+
     const onCut = (e: ClipboardEvent): void => {
-        if (editor.state.selection?.mode !== 'block' || editor.readOnly) return;
-        onCopy(e);
-        editor.run(deleteBlock);
+        // Never delete what did not reach the clipboard.
+        if (writeClipboard(e) && !editor.readOnly) editor.run(cutSelection);
     };
 
     /** Paste over a block selection replaces the selected blocks (a text selection's paste is the surface's). */
@@ -456,6 +474,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
     });
 
     onUnmounted(() => {
+        multi.destroy();
         stopListen();
         triggers?.close();
         setRoot(null);
@@ -508,7 +527,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
                 onPaste={onPaste}
             >
                 {toolbar === true || toolbar === 'top' ? bar : null}
-                <div {...editorPart('content')} onPointerDown={onContentPointerDown}>
+                <div {...editorPart('content')} ref={setContent} onPointerDown={onContentPointerDown}>
                     {state.doc.children.map((block) => (
                         <BlockView key={block.key} block={block} />
                     ))}

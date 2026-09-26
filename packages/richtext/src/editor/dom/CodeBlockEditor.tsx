@@ -101,7 +101,7 @@ export const CodeBlockEditor = component<CodeBlockEditorProps>(({ props, onUnmou
         const lang = node.lang ?? null;
         const readOnly = view.readOnly();
         return (
-            <div {...editorPart('code')} data-type={node.type} data-key={key} data-lang={lang ?? undefined} data-readonly={flag(readOnly)}>
+            <div {...editorPart('code')} data-type={node.type} data-key={key} data-lang={lang ?? undefined} data-readonly={flag(readOnly)} contentEditable="false">
                 {node.type === 'code' ? (
                     <div {...editorPart('code-header')}>
                         <input

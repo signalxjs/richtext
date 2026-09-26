@@ -90,6 +90,18 @@ flavour. Elements carry `data-scope="richtext-editor"` (and
 `richtext-toolbar`, `richtext-block-menu`, `richtext-suggest`) with
 `data-part` — the playground's `editor.css` is the reference stylesheet.
 
+Selections can span blocks: drag across them, Shift+Arrow past a block's
+edge, or Shift+click another block. Typing, Backspace, Enter, paste, marks,
+links, block types, lists and quotes then act on the whole range, and copy
+writes it in every clipboard flavour. Each block keeps its own surface. While
+a range is selected, the content element becomes the editing host
+(`data-multi`) and every input goes through the core's range commands (the
+model: `rangeBlocks`, `deleteRange`, `sliceDoc`, …, all in `./editor`, so
+other hosts get the same editing). Code, void and table blocks inside a range
+carry `data-in-range`, since they show no native highlight. Tables are all or
+nothing: a range never ends inside one. Shift+Up/Down therefore extends text
+across blocks; Escape selects whole blocks.
+
 Plugins extend the vocabulary once for every format, renderer and the editor:
 
 ```ts

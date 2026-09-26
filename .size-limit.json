@@ -40,7 +40,7 @@
   {
     "name": "@sigx/richtext/editor/dom",
     "path": "packages/richtext/dist/editor/dom.prod.js",
-    "limit": "36 KB",
+    "limit": "38 KB",
     "ignore": [
       "@sigx/richtext",
       "@sigx/richtext-markdown",

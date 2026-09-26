@@ -20,10 +20,11 @@ import type { InlineFlat } from './inline-flat.js';
 import { ATOM_CHAR, concatFlat, marksAt, sliceFlat, toFlat, toInline, toggleMark as toggleFlatMark } from './inline-flat.js';
 import { pickPasteFormat, type PasteData } from './paste.js';
 import type { BlockEntry, EditorBlock, EditorSelection, EditorState, TextSelection } from './state.js';
-import { blockSelection, normalizeDoc, selectionRange, textSelection } from './state.js';
+import { blockSelection, isCrossBlock, normalizeDoc, selectionRange, textSelection } from './state.js';
 import type { Step } from './steps.js';
 import { flatOf } from './steps.js';
 import type { Transaction, TransactionMeta } from './transaction.js';
+import { applyTransaction } from './transaction.js';
 
 export interface CommandContext {
     schema: Schema;
@@ -40,6 +41,28 @@ export type Command = (state: EditorState, dispatch: Dispatch | undefined, ctx: 
 
 export const meta = (extra: Partial<TransactionMeta> = {}): TransactionMeta => ({ origin: 'command', ...extra });
 
+/**
+ * Run `first`, then `second` on the state it leaves, as ONE transaction (one
+ * history entry): both commands' steps, the selection `second` ends with,
+ * and their metadata merged (`second` wins). Applies only when both do.
+ */
+export function sequence(first: Command, second: Command): Command {
+    return (state, dispatch, ctx) => {
+        let a: Transaction | null = null;
+        if (!first(state, (tr) => (a = tr), ctx) || !a) return false;
+        const trA: Transaction = a;
+        const mid = applyTransaction(state, trA, ctx).state;
+        let b: Transaction | null = null;
+        if (!second(mid, (tr) => (b = tr), ctx) || !b) return false;
+        const trB: Transaction = b;
+        if (dispatch) {
+            const end = applyTransaction(mid, trB, ctx).state;
+            dispatch({ steps: [...trA.steps, ...trB.steps], selection: end.selection, meta: { ...trA.meta, ...trB.meta }, ...(trB.composing !== undefined ? { composing: trB.composing } : trA.composing !== undefined ? { composing: trA.composing } : {}) });
+        }
+        return true;
+    };
+}
+
 /** The first command that applies wins (the ProseMirror `chainCommands`). */
 export function chain(...commands: readonly Command[]): Command {
     return (state, dispatch, ctx) => {
@@ -52,8 +75,10 @@ export function chain(...commands: readonly Command[]): Command {
 // Helpers (shared with the standard commands)
 // ---------------------------------------------------------------------------
 
+/** The selection when it is a text selection inside ONE block (the single-block commands' input); a cross-block range is not. */
 export function textSel(state: EditorState): TextSelection | null {
-    return state.selection && state.selection.mode === 'text' ? state.selection : null;
+    const sel = state.selection;
+    return sel && sel.mode === 'text' && !isCrossBlock(sel) ? sel : null;
 }
 
 export function entryOf(state: EditorState, key: string): BlockEntry | undefined {
@@ -396,12 +421,13 @@ export const setBlockType =
         return true;
     };
 
-/** Keep the caret, clamped to the converted block's length (a heading drops hard breaks, a code block joins the text). The surface clamps on its side too. */
+/** Keep the selection, each end clamped to its converted block's length (a heading drops hard breaks, a code block joins the text). The surface clamps on its side too. */
 function clampSelection(sel: TextSelection, steps: Step[], ctx: CommandContext): EditorSelection {
-    const step = steps.find((s) => s.type === 'replaceBlock' && s.key === sel.anchor.key);
-    if (!step || step.type !== 'replaceBlock') return sel;
-    const len = lengthOf(step.node, ctx);
-    return { mode: 'text', anchor: { key: sel.anchor.key, offset: Math.min(sel.anchor.offset, len) }, head: { key: sel.head.key, offset: Math.min(sel.head.offset, len) } };
+    const clamp = (p: TextSelection['anchor']): TextSelection['anchor'] => {
+        const step = steps.find((s) => s.type === 'replaceBlock' && s.key === p.key);
+        return step && step.type === 'replaceBlock' ? { key: p.key, offset: Math.min(p.offset, lengthOf(step.node, ctx)) } : p;
+    };
+    return { mode: 'text', anchor: clamp(sel.anchor), head: clamp(sel.head) };
 }
 
 /** `entry` and its ancestors, outermost first. */
@@ -421,10 +447,15 @@ function pathOf(state: EditorState, entry: BlockEntry): BlockEntry[] {
 export function selectedBlockKeys(state: EditorState): string[] {
     const sel = state.selection;
     if (!sel) return [];
-    if (sel.mode === 'text') return [sel.anchor.key];
-    const a = entryOf(state, sel.anchorKey);
-    const h = entryOf(state, sel.headKey);
-    if (!a || !h) return a ? [sel.anchorKey] : [];
+    if (sel.mode === 'text') return isCrossBlock(sel) ? siblingRun(state, sel.anchor.key, sel.head.key) : [sel.anchor.key];
+    return siblingRun(state, sel.anchorKey, sel.headKey);
+}
+
+/** The sibling run between two blocks at their lowest common parent (see `selectedBlockKeys`), in document order. */
+function siblingRun(state: EditorState, anchorKey: string, headKey: string): string[] {
+    const a = entryOf(state, anchorKey);
+    const h = entryOf(state, headKey);
+    if (!a || !h) return a ? [anchorKey] : [];
     const pa = pathOf(state, a);
     const ph = pathOf(state, h);
     let depth = 0;
@@ -596,13 +627,26 @@ export const selectBlock =
 
 /** Escape from a text selection to selecting the enclosing top-level block. */
 export const escapeToBlockSelection: Command = (state, dispatch) => {
-    const sel = textSel(state);
-    if (!sel) return false;
-    const entry = entryOf(state, sel.anchor.key);
+    const sel = state.selection;
+    if (sel?.mode === 'text' && isCrossBlock(sel)) return selectRunOf(state, sel, dispatch);
+    const single = textSel(state);
+    if (!single) return false;
+    const entry = entryOf(state, single.anchor.key);
     if (!entry) return false;
     dispatch?.({ steps: [], selection: blockSelection(topLevelOf(state, entry).node.key!), meta: meta() });
     return true;
 };
+
+/** A cross-block text selection becomes the block selection of its sibling run, keeping its direction. */
+function selectRunOf(state: EditorState, sel: TextSelection, dispatch: Dispatch | undefined): boolean {
+    const run = siblingRun(state, sel.anchor.key, sel.head.key);
+    if (!run.length) return false;
+    const index = state.index();
+    const forward = index.position(sel.anchor.key) <= index.position(sel.head.key);
+    const [first, last] = [run[0], run[run.length - 1]];
+    dispatch?.({ steps: [], selection: forward ? blockSelection(first, last) : blockSelection(last, first), meta: meta() });
+    return true;
+}
 
 /** Enter a block selection's first block as text. */
 export const escapeToText: Command = (state, dispatch, ctx) => {
@@ -621,6 +665,7 @@ export const extendBlockSelection =
     (state, dispatch) => {
         const sel = state.selection;
         if (!sel) return false;
+        if (sel.mode === 'text' && isCrossBlock(sel)) return selectRunOf(state, sel, dispatch);
         let anchorKey: string;
         let headKey: string;
         if (sel.mode === 'text') {
@@ -657,7 +702,8 @@ export const focusNeighbour =
     (state, dispatch, ctx) => {
         const sel = state.selection;
         let fromKey: string | null = null;
-        if (sel?.mode === 'text') fromKey = sel.anchor.key;
+        // A cross-block range collapses to its head.
+        if (sel?.mode === 'text') fromKey = sel.head.key;
         else if (sel?.mode === 'block') {
             const e = entryOf(state, dir === 'down' ? sel.headKey : sel.anchorKey);
             if (!e) return false;

@@ -5,7 +5,7 @@
 
 import type { Root } from '../ast/index.js';
 import type { Schema } from '../schema/index.js';
-import type { BlockIndex, EditorSelection, EditorState } from './state.js';
+import type { BlockIndex, EditorSelection, EditorState, Point } from './state.js';
 import { buildIndex, makeState } from './state.js';
 import type { Step, StepContext } from './steps.js';
 import { applyStep, invertStep } from './steps.js';
@@ -64,9 +64,10 @@ export function applyTransaction(state: EditorState, tr: Transaction, ctx: StepC
 }
 
 /**
- * Keep a selection meaningful across steps that did not set one: a text
- * selection follows inline edits in its own block; it is dropped when its
- * block disappears; block selections are dropped on structural change.
+ * Keep a selection meaningful across steps that did not set one: each end of
+ * a text selection follows inline edits in its own block, and the selection
+ * is dropped when either end's block disappears; block selections are
+ * dropped on structural change.
  */
 export function mapSelection(sel: EditorSelection, steps: Step[], doc: Root, schema: Schema): EditorSelection {
     if (!sel) return null;
@@ -77,40 +78,39 @@ export function mapSelection(sel: EditorSelection, steps: Step[], doc: Root, sch
     for (const step of steps) {
         if (!cur) return null;
         if (cur.mode === 'text') {
-            const key: string = cur.anchor.key;
-            switch (step.type) {
-                case 'replaceInline':
-                    if (step.key === key) {
-                        const map = (o: number) => (o <= step.from ? o : o >= step.to ? o + (step.slice.text.length - (step.to - step.from)) : step.from + step.slice.text.length);
-                        cur = { mode: 'text', anchor: { key, offset: map(cur.anchor.offset) }, head: { key, offset: map(cur.head.offset) } };
-                    }
-                    break;
-                case 'setInline':
-                    if (step.key === key) {
-                        const len = step.flat.text.length;
-                        cur = { mode: 'text', anchor: { key, offset: Math.min(cur.anchor.offset, len) }, head: { key, offset: Math.min(cur.head.offset, len) } };
-                    }
-                    break;
-                case 'setValue':
-                    if (step.key === key) {
-                        const len = step.value.length;
-                        cur = { mode: 'text', anchor: { key, offset: Math.min(cur.anchor.offset, len) }, head: { key, offset: Math.min(cur.head.offset, len) } };
-                    }
-                    break;
-                case 'replaceBlock':
-                case 'insertBlock':
-                case 'removeBlock':
-                case 'moveBlock':
-                case 'replaceDoc':
-                    // Structural: keep only if the block still exists (keys may have shifted, so verify).
-                    cur = existsIn(key) ? cur : null;
-                    break;
-                default:
-                    break;
-            }
+            const anchor = mapPoint(cur.anchor, step, existsIn);
+            const head = mapPoint(cur.head, step, existsIn);
+            cur = anchor && head ? (anchor === cur.anchor && head === cur.head ? cur : { mode: 'text', anchor, head }) : null;
         } else if (step.type !== 'replaceInline' && step.type !== 'setInline' && step.type !== 'setValue' && step.type !== 'setAttrs') {
             cur = existsIn(cur.anchorKey) && existsIn(cur.headKey) ? cur : null;
         }
     }
     return cur;
+}
+
+/** One end of a text selection through one step; `null` when its block is gone. Returns `p` itself when unchanged. */
+function mapPoint(p: Point, step: Step, existsIn: (key: string) => boolean): Point | null {
+    switch (step.type) {
+        case 'replaceInline': {
+            if (step.key !== p.key) return p;
+            const o = p.offset;
+            const offset = o <= step.from ? o : o >= step.to ? o + (step.slice.text.length - (step.to - step.from)) : step.from + step.slice.text.length;
+            return offset === o ? p : { key: p.key, offset };
+        }
+        case 'setInline':
+        case 'setValue': {
+            if (step.key !== p.key) return p;
+            const len = step.type === 'setInline' ? step.flat.text.length : step.value.length;
+            return p.offset <= len ? p : { key: p.key, offset: len };
+        }
+        case 'replaceBlock':
+        case 'insertBlock':
+        case 'removeBlock':
+        case 'moveBlock':
+        case 'replaceDoc':
+            // Structural: keep only if the block still exists (keys may have shifted, so verify).
+            return existsIn(p.key) ? p : null;
+        default:
+            return p;
+    }
 }

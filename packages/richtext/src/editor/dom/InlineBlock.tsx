@@ -41,7 +41,8 @@ function tagOf(node: EditorBlock, override?: string): string {
 
 function rangeOf(state: EditorState, key: string): { start: number; end: number } | null {
     const sel = state.selection;
-    if (!sel || sel.mode !== 'text' || sel.anchor.key !== key) return null;
+    // A cross-block range is painted by the editor, not restored into one surface.
+    if (!sel || sel.mode !== 'text' || sel.anchor.key !== key || sel.head.key !== key) return null;
     const a = sel.anchor.offset;
     const h = sel.head.offset;
     return { start: Math.min(a, h), end: Math.max(a, h) };

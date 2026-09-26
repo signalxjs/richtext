@@ -85,7 +85,7 @@ export function applyInputRules(rules: readonly InputRule[], tr: Transaction, st
     if (!typed || !triggerChars(rules).has(typed[typed.length - 1])) return null;
     const caret = step.from + typed.length;
     const sel = state.selection;
-    if (!sel || sel.mode !== 'text' || sel.anchor.key !== step.key || sel.anchor.offset !== caret || sel.head.offset !== caret) return null;
+    if (!sel || sel.mode !== 'text' || sel.anchor.key !== step.key || sel.head.key !== step.key || sel.anchor.offset !== caret || sel.head.offset !== caret) return null;
     const entry = state.index().get(step.key);
     if (!entry || ctx.schema.role(entry.node.type) !== 'textblock') return null;
     const flat = flatOf(entry.node, ctx);
@@ -111,7 +111,7 @@ export function applyInputRules(rules: readonly InputRule[], tr: Transaction, st
 export function applyEnterRules(state: EditorState, ctx: CommandContext, rules: readonly EnterRule[]): Transaction | null {
     if (!rules.length) return null;
     const sel = state.selection;
-    if (!sel || sel.mode !== 'text' || sel.anchor.offset !== sel.head.offset) return null;
+    if (!sel || sel.mode !== 'text' || sel.anchor.key !== sel.head.key || sel.anchor.offset !== sel.head.offset) return null;
     const key = sel.anchor.key;
     const entry = state.index().get(key);
     if (!entry || ctx.schema.role(entry.node.type) !== 'textblock') return null;

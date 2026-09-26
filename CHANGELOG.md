@@ -8,6 +8,18 @@ workspace shares one version line.
 
 ### Added
 
+- **Cross-block selection model** in `@sigx/richtext/editor` (#60, part of
+  #57). A `TextSelection` may now span blocks (`anchor.key !== head.key`). New:
+  - `textRange`, `isCrossBlock`, `comparePoints` and `BlockIndex.position`;
+  - `orderedRange`, `rangeBlocks` (the covered leaves in document order, with
+    tables as whole units) and `normalizeTextRange` (tables stay all or
+    nothing);
+  - `sequence(a, b)`, which runs two commands as one transaction.
+
+  `mapSelection` maps both ends independently. Single-block commands refuse a
+  cross-block range. `selectedBlockKeys`, Escape and Shift-Up/Down lift one to
+  its sibling run. Nothing creates such a selection yet; the range commands
+  and the DOM mode follow.
 - **`blocksToRoot(state, keys, ctx)` and `replaceSelectedBlocks(blocks)`** in
   `@sigx/richtext/editor` (#58). `blocksToRoot` builds a clipboard document
   from sibling blocks, wrapping ones that can't stand alone in a copy of their

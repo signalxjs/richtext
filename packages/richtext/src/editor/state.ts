@@ -33,7 +33,11 @@ export interface Point {
     offset: number;
 }
 
-/** A text selection within ONE block (v1: `anchor.key === head.key`). */
+/**
+ * A text selection from `anchor` to `head`. The two points may sit in
+ * different blocks (a cross-block range, see `isCrossBlock`); the range then
+ * covers everything between them in document order (`editor/range.ts`).
+ */
 export interface TextSelection {
     mode: 'text';
     anchor: Point;
@@ -53,11 +57,26 @@ export function textSelection(key: string, from: number, to = from): TextSelecti
     return { mode: 'text', anchor: { key, offset: from }, head: { key, offset: to } };
 }
 
+/** A text selection between two points, possibly in different blocks. */
+export function textRange(anchor: Point, head: Point): TextSelection {
+    return { mode: 'text', anchor: { ...anchor }, head: { ...head } };
+}
+
+/** A text selection whose ends are in different blocks. */
+export function isCrossBlock(sel: EditorSelection): boolean {
+    return !!sel && sel.mode === 'text' && sel.anchor.key !== sel.head.key;
+}
+
+/** Document order of two points: negative when `a` comes first, 0 when equal. Unknown keys sort last. */
+export function comparePoints(index: BlockIndex, a: Point, b: Point): number {
+    return index.position(a.key) - index.position(b.key) || a.offset - b.offset;
+}
+
 export function blockSelection(anchorKey: string, headKey = anchorKey): BlockSelection {
     return { mode: 'block', anchorKey, headKey };
 }
 
-/** The ordered `[from, to]` offsets of a text selection. */
+/** The ordered `[from, to]` offsets of a single-block text selection (a cross-block range: `orderedRange`). */
 export function selectionRange(sel: TextSelection): { from: number; to: number } {
     const a = sel.anchor.offset;
     const h = sel.head.offset;
@@ -94,6 +113,8 @@ export interface BlockIndex {
     editable(): readonly string[];
     prevEditable(key: string): string | null;
     nextEditable(key: string): string | null;
+    /** The block's place in document order (its index in `keys()`); `Infinity` for an unknown key. */
+    position(key: string): number;
 }
 
 export function buildIndex(doc: Root, schema: Schema): BlockIndex {
@@ -102,6 +123,7 @@ export function buildIndex(doc: Root, schema: Schema): BlockIndex {
     const editable: string[] = [];
     /** Position of each editable key in `editable`, so neighbour lookups are O(1). */
     const editableAt = new Map<string, number>();
+    const positionOf = new Map<string, number>();
 
     const walk = (parent: EditorParent, parentKey: string | null, depth: number): void => {
         const children = (parent as { children?: unknown[] }).children as EditorBlock[] | undefined;
@@ -110,6 +132,7 @@ export function buildIndex(doc: Root, schema: Schema): BlockIndex {
             const key = node.key;
             if (!key) return;
             map.set(key, { node, parent, parentKey, index, depth });
+            positionOf.set(key, keys.length);
             keys.push(key);
             if (schema.isEditable(node.type)) {
                 editableAt.set(key, editable.length);
@@ -132,6 +155,7 @@ export function buildIndex(doc: Root, schema: Schema): BlockIndex {
             const i = editableAt.get(key) ?? -1;
             return i >= 0 && i < editable.length - 1 ? editable[i + 1] : null;
         },
+        position: (key) => positionOf.get(key) ?? Infinity,
     };
 }
 

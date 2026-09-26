@@ -13,7 +13,7 @@
 export { createEditor } from './editor.js';
 export type { Editor, EditorOptions, EditorListener } from './editor.js';
 
-export { createState, normalizeDoc, buildIndex, makeState, emptyDoc, textSelection, blockSelection, selectionRange, selectionEquals } from './state.js';
+export { createState, normalizeDoc, buildIndex, makeState, emptyDoc, textSelection, textRange, blockSelection, selectionRange, selectionEquals, isCrossBlock, comparePoints } from './state.js';
 export type { EditorState, EditorSelection, TextSelection, BlockSelection, Point, BlockIndex, BlockEntry, EditorBlock, EditorParent } from './state.js';
 
 export { applyStep, invertStep, applyMove, updateBlock, updateChildren, rekey, rekeyChildren, flatOf, getBlock, StepError } from './steps.js';
@@ -47,8 +47,11 @@ export { createSchema, standardNodes, standardSchema } from '../schema/index.js'
 export type { Schema, NodeSpec, NodeRole, InlineFlatSpec, BlockMenuEntry } from '../schema/index.js';
 
 export * as commands from './registry.js';
-export { commands as commandRegistry, selectedBlockKeys, blocksToRoot, replaceSelectedBlocks, chain } from './registry.js';
+export { commands as commandRegistry, selectedBlockKeys, blocksToRoot, replaceSelectedBlocks, chain, sequence } from './registry.js';
 export type { Command, CommandContext, CommandName, Dispatch, ListKind } from './registry.js';
+
+export { orderedRange, rangeBlocks, normalizeTextRange, normalizeSelection } from './range.js';
+export type { OrderedRange, RangeBlock } from './range.js';
 
 export { pickPasteFormat } from './paste.js';
 export type { PasteData } from './paste.js';

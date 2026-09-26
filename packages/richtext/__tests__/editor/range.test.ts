@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { markdownFormat, markdownSchema, parseMarkdown, toMarkdown } from '@sigx/richtext-markdown';
 import { createState, blockSelection, comparePoints, isCrossBlock, textRange, textSelection } from '../../src/editor/state.js';
 import type { EditorSelection, Point } from '../../src/editor/state.js';
-import { normalizeTextRange, orderedRange, rangeBlocks } from '../../src/editor/range.js';
+import { normalizeTextRange, orderedRange, rangeBlocks, sliceDoc } from '../../src/editor/range.js';
+import { createEditor } from '../../src/editor/editor.js';
+import { markdownPreset } from '@sigx/richtext-markdown/editor';
 import { applyTransaction, mapSelection } from '../../src/editor/transaction.js';
 import type { Transaction } from '../../src/editor/transaction.js';
 import * as C from '../../src/editor/registry.js';
@@ -142,7 +144,7 @@ describe('commands over a cross-block range', () => {
     const cross = range(pt('b-0', 1), pt('b-1', 1));
 
     it('single-block commands refuse it', () => {
-        for (const command of [C.insertText('X'), C.toggleMark('strong'), C.splitTextBlock, C.joinTextBackward, C.insertHardBreak, C.setLink('u'), C.indentListItem, C.toggleList('bullet'), C.wrapInBlockquote, C.addRowAfter]) {
+        for (const command of [C.toggleMark('strong'), C.joinTextBackward, C.setLink('u'), C.indentListItem, C.toggleList('bullet'), C.wrapInBlockquote, C.addRowAfter]) {
             expect(run('ab\n\ncd', cross, command).ok).toBe(false);
         }
     });
@@ -165,5 +167,141 @@ describe('commands over a cross-block range', () => {
         const r = run('ab\n\ncd', range(pt('b-0', 1), pt('b-1', 2)), C.setBlockType('heading', { depth: 2 }));
         expect(r.md).toBe('## ab\n\n## cd\n');
         expect(r.state.selection).toEqual(range(pt('b-0', 1), pt('b-1', 2)));
+    });
+});
+
+describe('deleteRange (#62)', () => {
+    const del = (md: string, a: Point, h: Point) => run(md, range(a, h), C.deleteRange);
+
+    it('joins the two edge text blocks and removes everything between, in either direction', () => {
+        const r = del('hello\n\nmid\n\nworld', pt('b-0', 2), pt('b-2', 3));
+        expect(r.md).toBe('held\n');
+        expect(r.state.selection).toEqual(textSelection('b-0', 2));
+        expect(del('hello\n\nmid\n\nworld', pt('b-2', 3), pt('b-0', 2)).md).toBe('held\n');
+    });
+
+    it('keeps the marks on both sides of the join', () => {
+        expect(del('**bold** x\n\ny *it*', pt('b-0', 2), pt('b-1', 2)).md).toBe('**bo**_it_\n');
+    });
+
+    it('removes a fully covered list as one block', () => {
+        const r = del('a\n\n- b\n- c\n\nd', pt('b-0', 1), pt('b-2', 0));
+        expect(r.md).toBe('ad\n');
+        expect(r.state.doc.children).toHaveLength(1);
+    });
+
+    it('joins into and out of a list, collapsing the items it empties', () => {
+        expect(del('a\n\n- b\n- c', pt('b-0', 1), pt('b-1.0.0', 0)).md).toBe('ab\n\n- c\n');
+        expect(del('- a\n- b\n\nc', pt('b-0.0.0', 1), pt('b-1', 0)).md).toBe('- ac\n');
+        expect(del('- a\n- b\n- c', pt('b-0.0.0', 1), pt('b-0.1.0', 1)).md).toBe('- a\n- c\n');
+    });
+
+    it('trims a code block at an edge instead of joining it', () => {
+        const r = del('ab\n\n```\ncode\n```', pt('b-0', 1), pt('b-1', 2));
+        expect(r.md).toBe('a\n\n```\nde\n```\n');
+        expect(r.state.selection).toEqual(textSelection('b-0', 1));
+    });
+
+    it('takes void blocks and whole tables in between', () => {
+        expect(del('a\n\n---\n\nb', pt('b-0', 1), pt('b-2', 0)).md).toBe('ab\n');
+        expect(del(TABLE, pt('b-0', 1), pt('b-2', 0)).md).toBe('ab\n');
+    });
+
+    it('can empty the document down to one empty block', () => {
+        const r = del('a\n\nb', pt('b-0', 0), pt('b-1', 1));
+        expect(r.state.doc.children).toHaveLength(1);
+        expect(r.state.doc.children[0]).toMatchObject({ type: 'paragraph', key: 'b-0', children: [] });
+        expect(r.state.selection).toEqual(textSelection('b-0', 0));
+    });
+
+    it('is what Backspace, Delete and cut do over a range; refuses a single-block selection', () => {
+        const sel = range(pt('b-0', 2), pt('b-1', 3));
+        for (const command of [C.joinBackward, C.joinForward, C.cutSelection]) expect(run('hello\n\nworld', sel, command).md).toBe('held\n');
+        expect(run('hello', textSelection('b-0', 1, 3), C.deleteRange).ok).toBe(false);
+        expect(run('hello', textSelection('b-0', 1, 3), C.cutSelection).md).toBe('hlo\n');
+    });
+});
+
+describe('editing over a range (#62)', () => {
+    const sel = range(pt('b-0', 2), pt('b-1', 3));
+
+    it('typing replaces the range in one transaction, inheriting the marks at its start', () => {
+        const r = run('hello\n\nworld', sel, C.insertText('X'));
+        expect(r.md).toBe('heXld\n');
+        expect(r.state.selection).toEqual(textSelection('b-0', 3));
+        expect(r.tr!.meta.group).toBe('typing');
+        expect(run('**hello**\n\nworld', sel, C.insertText('X')).md).toBe('**heX**ld\n');
+    });
+
+    it('Enter, hard break and atoms act at the collapsed caret', () => {
+        const enter = run('hello\n\nworld', sel, C.splitBlock);
+        expect(enter.md).toBe('he\n\nld\n');
+        expect(enter.state.selection).toEqual(textSelection('b-1', 0));
+        expect(run('- ab\n- cd', range(pt('b-0.0.0', 1), pt('b-0.1.0', 1)), C.splitBlock).md).toBe('- a\n- d\n');
+        expect(run('ab\n\ncd', range(pt('b-0', 1), pt('b-1', 1)), C.insertHardBreak).md).toBe('a\\\nd\n');
+        expect(run('ab\n\ncd', range(pt('b-0', 1), pt('b-1', 1)), C.insertImage('u', 'i')).md).toBe('a![i](u)d\n');
+    });
+
+    it('paste replaces the range', () => {
+        const r = run('hello\n\nworld', sel, C.paste({ text: 'x\n\ny' }));
+        expect(r.md).toBe('hex\n\nyld\n');
+        expect(r.tr!.meta.origin).toBe('paste');
+    });
+
+    it('one undo restores the range and the text typed over it', () => {
+        const e = createEditor({ doc: parseMarkdown('hello\n\nworld'), format: markdownFormat, plugins: [markdownPreset] });
+        e.setSelection(sel);
+        e.run(C.insertText('X'));
+        e.run(C.insertText('Y'));
+        expect(toMarkdown(e.state.doc)).toBe('heXYld\n');
+        e.undo();
+        expect(toMarkdown(e.state.doc)).toBe('hello\n\nworld\n');
+        expect(e.state.selection).toEqual(sel);
+    });
+});
+
+describe('copying a range (#62)', () => {
+    const copy = (md: string, sel: EditorSelection) => {
+        const root = C.copySelection(state(md, sel), ctx);
+        return root && toMarkdown(root);
+    };
+
+    it('slices the edge blocks and keeps everything between', () => {
+        expect(copy('hello\n\nmid\n\nworld', range(pt('b-0', 2), pt('b-2', 3)))).toBe('llo\n\nmid\n\nwor\n');
+        expect(copy('**bold** x\n\nyz', range(pt('b-1', 1), pt('b-0', 2)))).toBe('**ld** x\n\ny\n');
+    });
+
+    it('prunes an edge container to its covered children and keeps what a list needs', () => {
+        expect(copy('a\n\n- b\n- c\n\nd', range(pt('b-0', 0), pt('b-1.0.0', 1)))).toBe('a\n\n- b\n');
+        expect(copy('1. a\n2. b\n3. c', range(pt('b-0.0.0', 0), pt('b-0.1.0', 1)))).toBe('1. a\n2. b\n');
+    });
+
+    it('copies code partially and tables whole', () => {
+        expect(copy('ab\n\n```\ncode\n```', range(pt('b-0', 1), pt('b-1', 2)))).toBe('b\n\n```\nco\n```\n');
+        expect(copy(TABLE, range(pt('b-0', 0), pt('b-2', 1)))).toBe('a\n\n| x |\n| --- |\n| y |\n\nb\n');
+    });
+
+    it('covers a single-block selection and a block selection; nothing for a caret', () => {
+        expect(copy('hello', textSelection('b-0', 1, 3))).toBe('el\n');
+        expect(copy('- a\n- b', blockSelection('b-0.1'))).toBe('- b\n');
+        expect(copy('hello', textSelection('b-0', 1))).toBeNull();
+        expect(sliceDoc(state('ab\n\ncd'), range(pt('b-0', 1), pt('b-1', 1)), ctx).children.every((c) => !('key' in c))).toBe(true);
+    });
+});
+
+describe('extendSelectionToNeighbour (#62)', () => {
+    it('moves the head into the next / previous editable block, over voids', () => {
+        const down = run('ab\n\n---\n\ncd', textSelection('b-0', 1), C.extendSelectionToNeighbour('down'));
+        expect(down.state.selection).toEqual(range(pt('b-0', 1), pt('b-2', 0)));
+        const up = run('ab\n\ncd', range(pt('b-1', 1), pt('b-1', 1)), C.extendSelectionToNeighbour('up'));
+        expect(up.state.selection).toEqual(range(pt('b-1', 1), pt('b-0', 2)));
+        expect(run('ab\n\ncd', textSelection('b-0', 1), C.extendSelectionToNeighbour('down', () => 1)).state.selection).toEqual(range(pt('b-0', 1), pt('b-1', 1)));
+    });
+
+    it('jumps past a table and stops at the document edge', () => {
+        expect(run(TABLE, textSelection('b-0', 0), C.extendSelectionToNeighbour('down')).state.selection).toEqual(range(pt('b-0', 0), pt('b-2', 0)));
+        const edge = run('ab\n\ncd', range(pt('b-0', 0), pt('b-1', 0)), C.extendSelectionToNeighbour('down'));
+        expect(edge.state.selection).toEqual(range(pt('b-0', 0), pt('b-1', 2)));
+        expect(run('ab\n\ncd', range(pt('b-0', 0), pt('b-1', 2)), C.extendSelectionToNeighbour('down')).ok).toBe(false);
     });
 });

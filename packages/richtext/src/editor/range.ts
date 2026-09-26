@@ -11,9 +11,12 @@
  * so `rangeBlocks` reports a table as one whole unit.
  */
 
+import type { Root } from '../ast/index.js';
 import type { CommandContext } from './commands.js';
-import { entryOf, firstEditable, lastEditable, lengthOf } from './commands.js';
-import type { BlockEntry, EditorSelection, EditorState, Point, TextSelection } from './state.js';
+import { clipboardRoot, entryOf, firstEditable, lastEditable, lengthOf, siblingRun, stripKeys } from './blocks.js';
+import { sliceFlat, toInline } from './inline-flat.js';
+import type { BlockEntry, EditorBlock, EditorSelection, EditorState, Point, TextSelection } from './state.js';
+import { flatOf } from './steps.js';
 import { comparePoints, isCrossBlock, textRange } from './state.js';
 
 /** A text selection's ends in document order. */
@@ -131,4 +134,50 @@ export function normalizeTextRange(state: EditorState, sel: TextSelection, ctx: 
 /** Normalise any selection: a cross-block text selection through `normalizeTextRange`, anything else as is. */
 export function normalizeSelection(state: EditorState, sel: EditorSelection, ctx: CommandContext): EditorSelection {
     return sel && sel.mode === 'text' ? normalizeTextRange(state, sel, ctx) : sel;
+}
+
+/**
+ * A copy of what a text selection covers, as a document for the clipboard:
+ * the edge blocks cut at the range's ends (text through its flat model, so
+ * marks survive; code by value), containers on an edge pruned to the children
+ * inside the range (a list keeps its attributes), everything in between whole.
+ * Blocks that cannot stand alone are wrapped in the parent they need (see
+ * `clipboardRoot`). Keys and positions are stripped.
+ */
+export function sliceDoc(state: EditorState, sel: TextSelection, ctx: CommandContext): Root {
+    const norm = normalizeTextRange(state, sel, ctx);
+    const { from, to } = orderedRange(state, norm);
+    const index = state.index();
+    const keys = index.keys();
+    const start = index.position(from.key);
+    const end = index.position(to.key);
+    const lastUnder = (key: string): number => {
+        let i = index.position(key);
+        while (i + 1 < keys.length && keys[i + 1].startsWith(key + '.')) i++;
+        return i;
+    };
+    const intersects = (key: string): boolean => index.position(key) <= end && lastUnder(key) >= start;
+    const prune = (node: EditorBlock): EditorBlock => {
+        const key = node.key!;
+        const role = ctx.schema.role(node.type);
+        if (role === 'textblock') {
+            const flat = flatOf(node, ctx);
+            const a = key === from.key ? from.offset : 0;
+            const b = key === to.key ? to.offset : flat.text.length;
+            return a === 0 && b === flat.text.length ? node : ({ ...node, children: toInline(sliceFlat(flat, a, b), ctx.schema) } as EditorBlock);
+        }
+        if (role === 'code') {
+            const value = (node as { value: string }).value;
+            const a = key === from.key ? from.offset : 0;
+            const b = key === to.key ? to.offset : value.length;
+            return { ...node, value: value.slice(a, b) } as EditorBlock;
+        }
+        const children = (node as { children?: EditorBlock[] }).children;
+        if (role === 'table' || !children || !ctx.schema.isContainer(node.type)) return node;
+        return { ...node, children: children.filter((c) => c.key && intersects(c.key)).map(prune) } as EditorBlock;
+    };
+    const run = siblingRun(state, from.key, to.key);
+    if (!run.length) return { type: 'root', children: [] };
+    const first = entryOf(state, run[0])!;
+    return clipboardRoot(state, first.parentKey, run.map((k) => stripKeys(prune(entryOf(state, k)!.node))), ctx);
 }

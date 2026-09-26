@@ -320,6 +320,29 @@ describe('RichTextEditor', () => {
         expect(setData.mock.calls).toEqual(expect.arrayContaining([['text/plain', 'a\n'], ['text/markdown', 'a\n']]));
     });
 
+    it('copies a nested block selection with the parent it needs (#58)', async () => {
+        const m = await mount({ defaultSource: '- a\n- b' });
+        m.controller.editor.dispatch({ steps: [], selection: blockSelection('b-0.1'), meta: { origin: 'command' } });
+        await tick();
+        const setData = vi.fn();
+        const e = new Event('copy', { bubbles: true, cancelable: true });
+        Object.defineProperty(e, 'clipboardData', { value: { setData } });
+        m.root.dispatchEvent(e);
+        expect(setData.mock.calls).toEqual(expect.arrayContaining([['text/plain', '- b\n']]));
+    });
+
+    it('pastes over a block selection (#58)', async () => {
+        const m = await mount({ defaultSource: 'a\n\nb\n\nc' });
+        m.controller.editor.dispatch({ steps: [], selection: blockSelection('b-1'), meta: { origin: 'command' } });
+        await tick();
+        const e = new Event('paste', { bubbles: true, cancelable: true });
+        Object.defineProperty(e, 'clipboardData', { value: { types: ['text/plain'], getData: (t: string) => (t === 'text/plain' ? '# x' : '') } });
+        m.root.dispatchEvent(e);
+        await tick();
+        expect(e.defaultPrevented).toBe(true);
+        expect(m.controller.getSource()).toBe('a\n\n# x\n\nc\n');
+    });
+
     it('labels void blocks by their menu entry and falls back to the type', async () => {
         const m = await mount({ defaultSource: '---\n\n[x]: /u' });
         expect(m.root.querySelector('[data-part=void][data-type=thematicBreak]')!.getAttribute('aria-label')).toBe('Divider');

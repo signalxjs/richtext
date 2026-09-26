@@ -319,12 +319,7 @@ export function createDomInlineSurface(host: HTMLElement, init: InlineSurfaceIni
         }
         const data = e.clipboardData;
         if (!data) return;
-        const flavours: PasteData = { text: data.getData('text/plain') };
-        for (const type of Array.from(data.types ?? [])) {
-            if (type === 'text/plain' || type === 'Files') continue;
-            const value = data.getData(type);
-            if (value) flavours[type] = value;
-        }
+        const flavours = readPasteData(data);
         const range = currentRange() ?? lastRange ?? { start: length(), end: length() };
         if (events.paste({ data: flavours, range })) e.preventDefault();
     };
@@ -460,4 +455,15 @@ export function createDomInlineSurface(host: HTMLElement, init: InlineSurfaceIni
         },
     };
     return surface;
+}
+
+/** Every text flavour on a clipboard payload: `text/plain` as `text`, the rest by MIME type (files skipped). */
+export function readPasteData(data: DataTransfer): PasteData {
+    const flavours: PasteData = { text: data.getData('text/plain') };
+    for (const type of Array.from(data.types ?? [])) {
+        if (type === 'text/plain' || type === 'Files') continue;
+        const value = data.getData(type);
+        if (value) flavours[type] = value;
+    }
+    return flavours;
 }

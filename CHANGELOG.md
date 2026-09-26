@@ -6,6 +6,15 @@ workspace shares one version line.
 
 ## [Unreleased]
 
+### Added
+
+- **`blocksToRoot(state, keys, ctx)` and `replaceSelectedBlocks(blocks)`** in
+  `@sigx/richtext/editor` (#58). `blocksToRoot` builds a clipboard document
+  from sibling blocks, wrapping ones that can't stand alone in a copy of their
+  parent (a list item in its list, a row in its table). `replaceSelectedBlocks`
+  replaces a block selection with pasted blocks; `insertBlocks` and `paste` use
+  it when a block selection is active.
+
 ### Fixed
 
 - **A trigger character inside inline code opened a suggestion session**
@@ -16,6 +25,18 @@ workspace shares one version line.
   `RichTextEditor` passes both (literal = `spec.inline.literal` in the schema).
   Other hosts (the Lynx editor) should pass `flat.spans` the same way; without
   spans the behaviour is unchanged.
+- **Block-selection editing** (#58).
+  - A block selection whose ends have different parents collapsed to its
+    anchor; `selectedBlockKeys` now lifts both ends to their lowest common
+    parent.
+  - `toggleList` on a mixed selection (paragraph, divider, paragraph)
+    reordered the document; now each run of text blocks and lists becomes one
+    list, a selected list's items are spliced in, and other blocks stay put.
+  - Copying a nested block selection (a list item) put an empty document on
+    the clipboard.
+  - Paste over a block selection did nothing; it now replaces the blocks.
+  - `moveBlockUp` / `moveBlockDown` refused a multi-block selection; they now
+    move the run.
 
 ## [0.4.0] - 2026-09-18
 

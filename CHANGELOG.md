@@ -103,6 +103,20 @@ workspace shares one version line.
   `emphasis` and `delete` now move outside the delimiters (`**world** `),
   through nested marks too, and a mark holding only whitespace is dropped.
 
+### Changed
+
+- **Cross-block selection is tested on Firefox and WebKit** (#68). The
+  playground e2e runs the cross-block spec on Firefox and WebKit next to
+  Chromium, and CI installs all three browsers. The Firefox failures seen
+  while building #67 were all in the test harness, not the editor:
+  - it clicked at page coordinates measured before layout settled; it now uses
+    locator actions that wait for stable elements;
+  - Firefox copies (for copy) or empties (for paste) the `DataTransfer` a
+    synthetic `ClipboardEvent` is built with.
+
+  `editor.spec.ts` also uses host-aware keys for caret movement and
+  select-all, so the suite passes on a macOS host.
+
 ## [0.4.0] - 2026-09-18
 
 ### Changed

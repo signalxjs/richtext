@@ -131,7 +131,7 @@ jobs:
         run: pnpm --filter playground-example build
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
 
       - name: E2E
         run: pnpm --filter playground-example e2e

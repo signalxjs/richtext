@@ -4,7 +4,9 @@
  * Serves the BUILT app (`vite preview`), so build first — locally
  * `pnpm build && pnpm --filter playground-example build`, in CI the `e2e`
  * job does exactly that before `pnpm --filter playground-example e2e`.
- * Chromium only: the suite checks the markdown DOM, not browser quirks.
+ * Chromium runs everything. Firefox and WebKit run the cross-block selection
+ * spec, the one path that depends on how an engine handles selections across
+ * editing hosts.
  */
 import { defineConfig, devices } from '@playwright/test';
 
@@ -23,7 +25,11 @@ export default defineConfig({
         baseURL: BASE_URL,
         trace: 'retain-on-failure'
     },
-    projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+    projects: [
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testMatch: /cross-block\.spec\.ts/ },
+        { name: 'webkit', use: { ...devices['Desktop Safari'] }, testMatch: /cross-block\.spec\.ts/ }
+    ],
     webServer: {
         command: 'pnpm preview',
         url: BASE_URL,

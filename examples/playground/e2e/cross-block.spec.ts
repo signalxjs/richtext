@@ -17,23 +17,28 @@ async function openEditor(page: Page, markdown: string): Promise<void> {
     await page.getByTestId('source').fill(markdown);
     await page.getByTestId('toggle-editor').check();
     await expect(editor(page)).toBeVisible();
-    // The tests click at measured coordinates: let fonts and layout settle first.
     await page.evaluate(() => document.fonts.ready);
-    await block(page, 'b-0').scrollIntoViewIfNeeded();
 }
 
-/** Click at the very start / end of a block's text (Shift held for a Shift+click: `mouse.click` takes no modifiers). */
-async function clickEdge(page: Page, key: string, edge: 'start' | 'end', modifiers: 'Shift'[] = []): Promise<void> {
-    const text = await block(page, key).evaluate((el, e) => {
+/**
+ * A point at the very start / end of a block's text, relative to the block's box — handed to
+ * Playwright's locator actions, which scroll the block into view and wait for it to be stable
+ * (raw page coordinates go stale while a page still settles, and do in Firefox).
+ */
+async function edgeOf(page: Page, key: string, edge: 'start' | 'end'): Promise<{ x: number; y: number }> {
+    return block(page, key).evaluate((el, e) => {
+        const box = el.getBoundingClientRect();
         const range = document.createRange();
         range.selectNodeContents(el);
         const rects = range.getClientRects();
         const r = e === 'start' ? rects[0] : rects[rects.length - 1];
-        return { x: e === 'start' ? r.left + 1 : r.right - 1, y: r.top + r.height / 2 };
+        return { x: (e === 'start' ? r.left + 1 : r.right - 1) - box.left, y: r.top + r.height / 2 - box.top };
     }, edge);
-    for (const m of modifiers) await page.keyboard.down(m);
-    await page.mouse.click(text.x, text.y);
-    for (const m of modifiers) await page.keyboard.up(m);
+}
+
+/** Click at the very start / end of a block's text, optionally with Shift held. */
+async function clickEdge(page: Page, key: string, edge: 'start' | 'end', modifiers: 'Shift'[] = []): Promise<void> {
+    await block(page, key).click({ position: await edgeOf(page, key, edge), modifiers });
 }
 
 /** The editor's Mod key, decided the way the editor decides it (the emulated platform, not the host's). */
@@ -48,12 +53,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('a drag across three paragraphs selects across them; Backspace joins the ends', async ({ page }) => {
-    const first = (await block(page, 'b-0').boundingBox())!;
-    const last = (await block(page, 'b-2').boundingBox())!;
-    await page.mouse.move(first.x + 4, first.y + first.height / 2);
+    // Press near the start of the first block, move through the second, release inside the third.
+    await block(page, 'b-0').hover({ position: { x: 4, y: (await edgeOf(page, 'b-0', 'start')).y } });
     await page.mouse.down();
-    await page.mouse.move(first.x + 40, last.y + last.height / 2, { steps: 12 });
-    await page.mouse.move(last.x + 12, last.y + last.height / 2, { steps: 6 });
+    await block(page, 'b-1').hover();
+    await block(page, 'b-2').hover({ position: { x: 12, y: (await edgeOf(page, 'b-2', 'start')).y } });
     await page.mouse.up();
     await expect(content(page)).toHaveAttribute('data-multi', '');
     await page.keyboard.press('Backspace');
@@ -96,15 +100,19 @@ test('copy writes the range as markdown; paste over a range replaces it', async 
     await clickEdge(page, 'b-0', 'start');
     await clickEdge(page, 'b-1', 'end', ['Shift']);
     const copied = await page.evaluate(() => {
-        const dt = new DataTransfer();
-        document.activeElement!.dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }));
-        return { plain: dt.getData('text/plain'), markdown: dt.getData('text/markdown') };
+        // Read the event's own clipboardData: Firefox copies the DataTransfer it is constructed with.
+        const e = new ClipboardEvent('copy', { clipboardData: new DataTransfer(), bubbles: true, cancelable: true });
+        document.activeElement!.dispatchEvent(e);
+        return { plain: e.clipboardData!.getData('text/plain'), markdown: e.clipboardData!.getData('text/markdown') };
     });
     expect(copied.markdown).toBe('one\n\ntwo\n');
     await page.evaluate(() => {
+        // A plain event carrying the data: Firefox empties a synthetic ClipboardEvent's DataTransfer.
         const dt = new DataTransfer();
         dt.setData('text/plain', 'pasted');
-        document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+        const e = new Event('paste', { bubbles: true, cancelable: true });
+        Object.defineProperty(e, 'clipboardData', { value: dt });
+        document.activeElement!.dispatchEvent(e);
     });
     await expect(serialized(page)).toHaveText('pasted\n\nthree');
 });

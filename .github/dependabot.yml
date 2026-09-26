@@ -5,6 +5,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # sigx core is owned by core-sync.yml, which keeps the pnpm-workspace.yaml
+    # catalog single-minor (`^X.Y.0`). Dependabot would rewrite it to the exact
+    # patch (`^X.Y.Z`), which fails `verify:catalog`.
+    ignore:
+      - dependency-name: "@sigx/reactivity"
+      - dependency-name: "@sigx/runtime-core"
+      - dependency-name: "@sigx/runtime-dom"
+      - dependency-name: "@sigx/server-renderer"
+      - dependency-name: "@sigx/vite"
+      - dependency-name: "sigx"
     groups:
       dev-dependencies:
         dependency-type: development

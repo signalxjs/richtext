@@ -33,7 +33,8 @@ export type EditorPart =
     | 'table'
     | 'table-row'
     | 'table-cell'
-    | 'live';
+    | 'live'
+    | 'bubble';
 
 export type ToolbarPart = 'root' | 'group' | 'item';
 export type BlockMenuPart = 'root' | 'item' | 'label' | 'separator';

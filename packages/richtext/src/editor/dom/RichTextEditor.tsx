@@ -48,6 +48,7 @@ import { editorPart, flag } from './anatomy.js';
 import { BlockView } from './BlockView.js';
 import { BlockMenu } from './BlockMenu.js';
 import { LinkPopover } from './LinkPopover.js';
+import { FloatingToolbar } from './FloatingToolbar.js';
 import { standardContainerViews, type ContainerView } from './containers.js';
 import { createEditorView, useEditorView, type EditorView } from './context.js';
 import { track } from './context.js';
@@ -105,6 +106,8 @@ export type RichTextEditorProps = Define.WithAttrs<
     & Define.Prop<'containers', Record<string, ContainerView>>
     /** `true` / `'top'` renders the toolbar above the content, `'bottom'` below, `false` none. Default `true`. */
     & Define.Prop<'toolbar', boolean | 'top' | 'bottom'>
+    /** A toolbar over the text selection: `true` for the default items (bold, italic, strike, code, link), or the items to show. Default off. */
+    & Define.Prop<'floatingToolbar', boolean | readonly ToolbarItem[]>
     & Define.Prop<'toolbarItems', readonly ToolbarItem[]>
     & Define.Prop<'renderToolbarItem', ToolbarRenderItem>
     & Define.Prop<'renderSuggestion', SuggestionRenderItem>
@@ -134,6 +137,7 @@ const OWN_PROPS = [
     'atoms',
     'containers',
     'toolbar',
+    'floatingToolbar',
     'toolbarItems',
     'renderToolbarItem',
     'renderSuggestion',
@@ -548,6 +552,9 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
                 {toolbar === 'bottom' ? bar : null}
                 <BlockMenu />
                 <LinkPopover />
+                {props.floatingToolbar ? (
+                    <FloatingToolbar items={Array.isArray(props.floatingToolbar) ? props.floatingToolbar : undefined} renderItem={props.renderToolbarItem} suppressed={!!s} />
+                ) : null}
                 {s ? (
                     <SuggestionPopup
                         session={s}

@@ -114,7 +114,7 @@ test('the toolbar toggles marks on the selection', async ({ page }) => {
     const p = block(page, 'b-0');
     await p.click();
     await page.keyboard.press(SELECT_ALL);
-    const bold = page.locator('#editor [data-scope="richtext-toolbar"] [data-item="bold"]');
+    const bold = page.locator('#editor > [data-scope="richtext-toolbar"] [data-item="bold"]');
     await expect(bold).toHaveAttribute('data-state', 'off');
     await bold.click();
     await expect(p.locator('strong')).toHaveText('hello');
@@ -257,4 +257,18 @@ test('links: Mod-k links the selection, the caret in the link shows it, Edit and
     await p.click({ position: { x: (await p.boundingBox())!.width - 12, y: 8 } });
     await bubble.locator('[data-part="remove"]').click();
     await expect(serialized(page)).toHaveText('see docs');
+});
+
+test('floating toolbar: a selection shows it, a button formats, a caret hides it', async ({ page }) => {
+    const p = block(page, 'b-0');
+    await p.click();
+    await page.keyboard.press(LINE_END);
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowLeft');
+    const bubble = page.locator('#editor [data-scope="richtext-editor"][data-part="bubble"]');
+    await expect(bubble).toBeVisible();
+    await bubble.locator('[data-item="bold"]').click();
+    await expect(serialized(page)).toHaveText('he**llo**');
+    await expect(p).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(bubble).toHaveCount(0);
 });

@@ -18,6 +18,8 @@ export { EditorToolbar } from './Toolbar.js';
 export type { EditorToolbarProps, ToolbarRenderItem } from './Toolbar.js';
 export { BlockMenu } from './BlockMenu.js';
 export { LinkPopover } from './LinkPopover.js';
+export { FloatingToolbar, FLOATING_TOOLBAR_ITEMS } from './FloatingToolbar.js';
+export type { FloatingToolbarProps } from './FloatingToolbar.js';
 export { SuggestionPopup } from './SuggestionPopup.js';
 export type { SuggestionPopupProps, SuggestionRenderItem } from './SuggestionPopup.js';
 

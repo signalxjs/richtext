@@ -489,6 +489,47 @@ describe('block selections (#58)', () => {
     });
 });
 
+describe('table navigation (#70)', () => {
+    const T = '| a | b |\n| - | - |\n| c | d |';
+
+    it('goToNextCell selects the next cell, row by row; the last cell adds a row', () => {
+        expect(run(T, at('b-0.0.0', 0), C.goToNextCell).state.selection).toEqual(at('b-0.0.1', 0, 1));
+        expect(run(T, at('b-0.0.1', 1), C.goToNextCell).state.selection).toEqual(at('b-0.1.0', 0, 1));
+        const grow = run(T, at('b-0.1.1', 1), C.goToNextCell);
+        expect(grow.md).toBe('| a | b |\n| --- | --- |\n| c | d |\n|  |  |\n');
+        expect(grow.state.selection).toEqual(at('b-0.2.0', 0));
+        expect(run('x', at('b-0', 0), C.goToNextCell).ok).toBe(false);
+    });
+
+    it('goToPrevCell selects the previous cell and stops at the first', () => {
+        expect(run(T, at('b-0.1.0', 0), C.goToPrevCell).state.selection).toEqual(at('b-0.0.1', 0, 1));
+        expect(run(T, at('b-0.0.0', 0), C.goToPrevCell).ok).toBe(true);
+        expect(run(T, at('b-0.0.0', 0), C.goToPrevCell).state.selection).toEqual(at('b-0.0.0', 0));
+    });
+
+    it('Tab and Shift-Tab move between cells in a table and still indent list items', () => {
+        expect(run(T, at('b-0.0.0', 0), C.commands.indentOrNextCell).state.selection).toEqual(at('b-0.0.1', 0, 1));
+        expect(run(T, at('b-0.0.1', 0), C.commands.outdentOrPrevCell).state.selection).toEqual(at('b-0.0.0', 0, 1));
+        expect(run('- a\n- b', at('b-0.1.0', 0), C.commands.indentOrNextCell).md).toBe('- a\n  - b\n');
+    });
+
+    it('ArrowUp/Down move by column and leave the table at its edges', () => {
+        const md = 'x\n\n' + T + '\n\ny';
+        expect(run(md, at('b-1.0.1', 1), C.commands.focusDown).state.selection).toEqual(at('b-1.1.1', 1));
+        expect(run(md, at('b-1.1.0', 0), C.commands.focusUp).state.selection).toEqual(at('b-1.0.0', 0));
+        expect(run(md, at('b-1.1.0', 0), C.commands.focusDown).state.selection).toEqual(at('b-2', 0));
+        expect(run(md, at('b-1.0.1', 0), C.commands.focusUp).state.selection).toEqual(at('b-0', 1));
+        // Nowhere to go past the table: stay put rather than slide sideways.
+        const stay = run(T, at('b-0.1.0', 0), C.commands.focusDown);
+        expect(stay.ok).toBe(true);
+        expect(stay.state.selection).toEqual(at('b-0.1.0', 0));
+    });
+
+    it('column alignment has registry names', () => {
+        expect(run(T, at('b-0.0.1', 0), C.commands.alignColumnCenter).md).toBe('| a | b |\n| --- | :-: |\n| c | d |\n');
+    });
+});
+
 describe('commands registry', () => {
     it('exposes every named command as a Command', () => {
         for (const [name, cmd] of Object.entries(C.commands)) {

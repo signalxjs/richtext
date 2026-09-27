@@ -32,7 +32,8 @@ import type { Root } from '../../ast/index.js';
 import type { DocumentFormat } from '../../document/index.js';
 import { createDomComponents, RichTextView, type DomComponents } from '../../dom/index.js';
 import type { RichTextPlugin } from '../../plugin/index.js';
-import { copySelection, cutSelection, deleteBlock, escapeToText, focusEnd, focusNeighbour, selectedBlockKeys, type Command } from '../commands.js';
+import { chain, copySelection, cutSelection, deleteBlock, escapeToText, focusEnd, focusNeighbour, selectedBlockKeys, type Command } from '../commands.js';
+import { moveInTable } from '../commands-standard.js';
 import { createEditor, type Editor } from '../editor.js';
 import type { InputRule } from '../input-rules.js';
 import { keyNames } from '../keys.js';
@@ -194,7 +195,11 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
         plugins,
         format,
         formats: props.formats,
-        keymap: { ArrowUp: focusNeighbour('up', offsetAt), ArrowDown: focusNeighbour('down', offsetAt), ...props.keymap },
+        keymap: {
+            ArrowUp: chain(moveInTable('up', offsetAt), focusNeighbour('up', offsetAt)),
+            ArrowDown: chain(moveInTable('down', offsetAt), focusNeighbour('down', offsetAt)),
+            ...props.keymap,
+        },
         inputRules: props.inputRules,
         platform: { isMac: isMacPlatform(), hasHardwareKeyboard: true, caretRectSpace: 'editor' },
         readOnly: props.readOnly ?? false,

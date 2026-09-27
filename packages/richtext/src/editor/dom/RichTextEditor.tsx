@@ -47,6 +47,7 @@ import { commands as commandRegistry } from '../registry.js';
 import { editorPart, flag } from './anatomy.js';
 import { BlockView } from './BlockView.js';
 import { BlockMenu } from './BlockMenu.js';
+import { LinkPopover } from './LinkPopover.js';
 import { standardContainerViews, type ContainerView } from './containers.js';
 import { createEditorView, useEditorView, type EditorView } from './context.js';
 import { track } from './context.js';
@@ -198,6 +199,12 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
         keymap: {
             ArrowUp: chain(moveInTable('up', offsetAt), focusNeighbour('up', offsetAt)),
             ArrowDown: chain(moveInTable('down', offsetAt), focusNeighbour('down', offsetAt)),
+            // Mod-k opens the link popover (host UI: the command only reports that it applies when dry-run).
+            'Mod-k': (state, dispatch) => {
+                if (state.selection?.mode !== 'text' || editor.readOnly) return false;
+                if (dispatch) view.openLinkEditor();
+                return true;
+            },
             ...props.keymap,
         },
         inputRules: props.inputRules,
@@ -539,6 +546,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
                 </div>
                 {toolbar === 'bottom' ? bar : null}
                 <BlockMenu />
+                <LinkPopover />
                 {s ? (
                     <SuggestionPopup
                         session={s}

@@ -530,6 +530,26 @@ describe('table navigation (#70)', () => {
     });
 });
 
+describe('links under the caret (#72)', () => {
+    const state = (md: string, sel: EditorSelection) => createState(parseMarkdown(md), sel, schema);
+
+    it('linkAt finds the link span under the caret or a selection inside it', () => {
+        expect(C.linkAt(state('see [docs](https://x "T") now', at('b-0', 6)), ctx)).toEqual({ key: 'b-0', from: 4, to: 8, url: 'https://x', title: 'T' });
+        expect(C.linkAt(state('see [docs](https://x) now', at('b-0', 5, 7)), ctx)).toMatchObject({ from: 4, to: 8, url: 'https://x' });
+        // At either edge of the link counts, outside does not.
+        expect(C.linkAt(state('see [docs](u) now', at('b-0', 4)), ctx)).toMatchObject({ from: 4, to: 8 });
+        expect(C.linkAt(state('see [docs](u) now', at('b-0', 8)), ctx)).toMatchObject({ from: 4, to: 8 });
+        expect(C.linkAt(state('see [docs](u) now', at('b-0', 2)), ctx)).toBeNull();
+        expect(C.linkAt(state('see [docs](u) now', at('b-0', 2, 6)), ctx)).toBeNull();
+    });
+
+    it('setLink with the caret inside a link retargets that link', () => {
+        const r = run('see [docs](https://old) now', at('b-0', 6), C.setLink('https://new'));
+        expect(r.md).toBe('see [docs](https://new) now\n');
+        expect(r.state.selection).toEqual(at('b-0', 6));
+    });
+});
+
 describe('commands registry', () => {
     it('exposes every named command as a Command', () => {
         for (const [name, cmd] of Object.entries(C.commands)) {

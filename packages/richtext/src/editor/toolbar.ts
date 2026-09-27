@@ -47,6 +47,13 @@ export interface ToolbarContext {
     ctx: CommandContext;
     /** Run a command (or undo/redo) against the editor; the command's result. */
     run(command: Command | 'undo' | 'redo'): boolean;
+    /** UI the host offers to items (the DOM editor's link popover). Items fall back to plain commands without it. */
+    ui?: ToolbarUi;
+}
+
+export interface ToolbarUi {
+    /** Open the host's link editor for the selection (a URL prompt / popover). */
+    openLinkEditor?(): void;
 }
 
 export interface ToolbarItem {
@@ -191,16 +198,16 @@ export const defaultToolbarItems: ToolbarItem[] = [
     { id: 'strike', label: 'S', icon: 'strikethrough', group: 'inline', isActive: markActive('delete'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleDelete) },
     { id: 'code', label: '</>', icon: 'code', group: 'inline', isActive: markActive('inlineCode'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleInlineCode) },
     {
-        // The neutral item links the selection to (or inserts) a placeholder
-        // URL, and unlinks when already linked — a real link UX (URL prompt)
-        // is a skin concern calling `setLink` itself.
+        // With a host link editor (the DOM popover) the item opens it. Without
+        // one it links the selection to (or inserts) a placeholder URL, and
+        // unlinks when already linked.
         id: 'link',
         label: 'Link',
         icon: 'link',
         group: 'inline',
         isActive: markActive('link'),
         isEnabled: inText,
-        run: (tc) => void tc.run(activeMarksOf(tc.state, tc.ctx).includes('link') ? commands.unsetLink : setLink('https://')),
+        run: (tc) => (tc.ui?.openLinkEditor ? tc.ui.openLinkEditor() : void tc.run(activeMarksOf(tc.state, tc.ctx).includes('link') ? commands.unsetLink : setLink('https://'))),
     },
     { id: 'h1', label: 'H1', icon: 'heading-1', group: 'block', isActive: headingActive(1), isEnabled: hasSelection, run: (tc) => void tc.run(commands.setHeading1) },
     { id: 'h2', label: 'H2', icon: 'heading-2', group: 'block', isActive: headingActive(2), isEnabled: hasSelection, run: (tc) => void tc.run(commands.setHeading2) },

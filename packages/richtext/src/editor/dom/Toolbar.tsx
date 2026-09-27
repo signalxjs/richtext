@@ -32,6 +32,7 @@ export const EditorToolbar = component<EditorToolbarProps>(({ props, signal }) =
         dispatch: editor.dispatch,
         ctx: editor.ctx,
         run: (command) => editor.run(command),
+        ui: { openLinkEditor: () => view.openLinkEditor() },
     });
 
     const onPointerDown = (e: PointerEvent): void => {

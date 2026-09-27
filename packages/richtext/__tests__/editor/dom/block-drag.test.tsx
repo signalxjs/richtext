@@ -61,6 +61,21 @@ describe('block drag and drop', () => {
         expect(m.controller.editor.state.selection).toEqual({ mode: 'block', anchorKey: 'b-2', headKey: 'b-2' });
     });
 
+    it('a dragleave bubbling from inside the content keeps the indicator (#77 review)', async () => {
+        const m = await mount('one\n\ntwo\n\nthree');
+        m.fire(m.handle('b-0'), 'dragstart');
+        m.fire(m.wrapper('b-2'), 'dragover', 55);
+        await tick();
+        // Moving between children: the browser fires dragleave on the child, sometimes with no relatedTarget.
+        m.fire(m.wrapper('b-2').querySelector('[data-part=inline]')!, 'dragleave');
+        await tick();
+        expect(m.root.querySelector('[data-part=drop-indicator]')).toBeTruthy();
+        // Leaving the content itself clears it.
+        m.fire(m.root.querySelector('[data-part=content]')!, 'dragleave');
+        await tick();
+        expect(m.root.querySelector('[data-part=drop-indicator]')).toBeNull();
+    });
+
     it('the upper half of a block drops before it', async () => {
         const m = await mount('one\n\ntwo\n\nthree');
         m.fire(m.handle('b-2'), 'dragstart');

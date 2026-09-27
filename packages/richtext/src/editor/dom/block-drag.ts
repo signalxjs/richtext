@@ -117,7 +117,9 @@ export function createBlockDrag(view: EditorView): BlockDrag {
     };
 
     const onDragLeave = (e: DragEvent): void => {
-        if (!dragging || !content) return;
+        // Only the content's own dragleave: one bubbling from a child fires on every move between
+        // children, sometimes without a relatedTarget.
+        if (!dragging || !content || e.target !== content) return;
         const next = e.relatedTarget as Node | null;
         if (next && content.contains(next)) return;
         target = null;

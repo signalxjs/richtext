@@ -63,6 +63,13 @@ export const BlockMenu = component(({ onUnmounted }) => {
 
     onUnmounted(() => dispose?.());
 
+    /** Focus follows the selection the action left: the clicked menu item is gone with the menu. */
+    const refocus = (): void => {
+        const sel = editor.state.selection;
+        if (sel?.mode === 'block') view.focusRoot();
+        else if (sel?.mode === 'text' && sel.anchor.key === sel.head.key) view.focusBlock(sel.anchor.key, { offset: sel.head.offset });
+    };
+
     const run = (action: MenuAction): void => {
         const req = view.blockMenu();
         if (!req) return;
@@ -76,12 +83,13 @@ export const BlockMenu = component(({ onUnmounted }) => {
                 editor.setSelection(textSelection(`${req.key}.${rows > 1 ? 1 : 0}.0`, 0));
             }
             editor.run(action.command);
+            refocus();
             return;
         }
         // Commands act on the selection: select the block first.
         editor.run(selectBlock(req.key));
         editor.run(action.command);
-        if (editor.state.selection?.mode === 'block') view.focusRoot();
+        refocus();
     };
 
     const onKeydown = (e: KeyboardEvent): void => {

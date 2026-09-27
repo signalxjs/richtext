@@ -246,6 +246,8 @@ describe('RichTextEditor', () => {
         m.controller.editor.setSelection({ mode: 'text', anchor: { key: 'b-1.0.1', offset: 0 }, head: { key: 'b-1.0.1', offset: 0 } });
         await act('table:alignRight');
         expect(m.controller.getSource()).toBe('x\n\n| a | b |\n| --- | --: |\n| c | d |\n|  |  |\n');
+        // Focus comes back to the cell the action ran on, not the removed menu item.
+        expect(document.activeElement?.getAttribute('data-key')).toBe('b-1.0.1');
         m.controller.editor.setSelection({ mode: 'text', anchor: { key: 'b-1.0.0', offset: 0 }, head: { key: 'b-1.0.0', offset: 0 } });
         await act('table:deleteColumn');
         expect(m.controller.getSource()).toBe('x\n\n| b |\n| --: |\n| d |\n|  |\n');

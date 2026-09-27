@@ -19,16 +19,6 @@ workspace shares one version line.
   - `baseKeymap` binds Tab / Shift-Tab to the new registry commands
     `indentOrNextCell` / `outdentOrPrevCell`. Also new in the registry:
     `goToNextCell`, `goToPrevCell` and `alignColumnLeft|Center|Right|None`.
-
-### Fixed
-
-- **ArrowUp/Down at a block's first or last line** could miss the edge when
-  the host is taller than its text (padding, a min-height, a table cell
-  stretched by its row). The caret stayed put instead of moving to the next
-  block. The edge is now measured against the content's own line boxes.
-
-### Added
-
 - **Select across blocks in the DOM editor** (#66, part of #57).
   - **How to select**: drag across blocks, press Shift+Arrow past a block's
     edge, or Shift+click another block. Each block keeps its own
@@ -97,6 +87,10 @@ workspace shares one version line.
 
 ### Fixed
 
+- **ArrowUp/Down at a block's first or last line** could miss the edge when
+  the host is taller than its text (padding, a min-height, a table cell
+  stretched by its row). The caret stayed put instead of moving to the next
+  block. The edge is now measured against the content's own line boxes.
 - **A trigger character inside inline code opened a suggestion session**
   (#17). Typing after `` `@` `` opened the mention popup, because the session
   manager only looked at the text before the caret. `createTriggerSessionManager`

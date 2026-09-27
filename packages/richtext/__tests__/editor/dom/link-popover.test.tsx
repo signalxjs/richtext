@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsx } from 'sigx';
 import { render } from '@sigx/runtime-dom';
 import { RichTextEditor, type RichTextEditorController } from '../../../src/editor/dom/index.js';
+import { textRange } from '../../../src/editor/index.js';
 import { markdownPreset } from '@sigx/richtext-markdown/editor';
 import { markdownFormat } from '@sigx/richtext-markdown';
 
@@ -118,6 +119,27 @@ describe('link popover', () => {
         (n.popover('edit')!.querySelector('[data-part=apply]') as HTMLButtonElement).click();
         await tick();
         expect(n.source()).toBe('see docs now\n');
+    });
+
+    it('over a range across blocks, Escape gives focus and the range back to the editor (#75 review)', async () => {
+        const m = await mount('hello\n\nworld');
+        m.host('b-0').focus();
+        m.controller.editor.setSelection(textRange({ key: 'b-0', offset: 2 }, { key: 'b-1', offset: 3 }));
+        await tick();
+        const content = m.root.querySelector('[data-part=content]') as HTMLElement;
+        expect(content.hasAttribute('data-multi')).toBe(true);
+        m.controller.editor.runKey('Mod-k');
+        await tick();
+        const input = m.popover('edit')!.querySelector('[data-part=input]') as HTMLInputElement;
+        expect(document.activeElement).toBe(input);
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        await tick();
+        expect(m.popover('edit')).toBeNull();
+        expect(document.activeElement).toBe(content);
+        expect(content.hasAttribute('data-multi')).toBe(true);
+        const dom = document.getSelection()!;
+        expect(m.host('b-0').contains(dom.anchorNode)).toBe(true);
+        expect(m.host('b-1').contains(dom.focusNode)).toBe(true);
     });
 
     it('never turns an unsafe URL into an href', async () => {

@@ -66,8 +66,10 @@ export interface EditorView {
     readonly linkRev: PrimitiveSignal<number>;
     openLinkEditor(): void;
     closeLinkEditor(): void;
-    /** Put keyboard focus and the DOM selection back on the model's text selection (after a popover). */
+    /** Put keyboard focus and the DOM selection back on the model's text selection (after a popover), across blocks too. */
     restoreSelection(): void;
+    /** Set by the editor component: re-enter multi-block mode for a cross-block range, focus it and paint the range. */
+    restoreRange?(): void;
     /** Bumped when focus enters or leaves the editor (for chrome that shows only while focused). */
     readonly focusRev: PrimitiveSignal<number>;
     /** Wired to the root's `focusin` / `focusout` by the editor component. */
@@ -151,7 +153,11 @@ export function createEditorView(opts: CreateViewOptions): EditorView {
         },
         restoreSelection() {
             const sel = editor.state.selection;
-            if (!sel || sel.mode !== 'text' || sel.anchor.key !== sel.head.key) return;
+            if (!sel || sel.mode !== 'text') return;
+            if (sel.anchor.key !== sel.head.key) {
+                view.restoreRange?.();
+                return;
+            }
             const s = surfaces.get(sel.anchor.key);
             if (!s) return;
             s.focus();

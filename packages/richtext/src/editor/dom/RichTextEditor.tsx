@@ -245,6 +245,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
     });
     defineProvide(useEditorView, () => view);
     const multi = createMultiSelection(view);
+    view.restoreRange = () => multi.restore();
     const setContent = (el: HTMLElement | null): void => multi.attach(el);
 
     // -- models in -----------------------------------------------------------

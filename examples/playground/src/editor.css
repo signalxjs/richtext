@@ -317,6 +317,7 @@
 /* ---- Popups: block menu and suggestions ----------------------------------- */
 
 [data-scope='richtext-block-menu'][data-part='root'],
+[data-scope='richtext-link'][data-part='root'],
 [data-scope='richtext-suggest'][data-part='root'] {
     z-index: 10;
     min-width: 12rem;
@@ -378,4 +379,58 @@
 
 .pane-editor > .body {
     padding: 0;
+}
+
+/* ---- Link popover ----------------------------------------------------- */
+
+[data-scope='richtext-link'][data-part='root'] {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    max-width: 28rem;
+}
+
+[data-scope='richtext-link'][data-part='form'] {
+    display: flex;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+[data-scope='richtext-link'][data-part='input'] {
+    flex: 1;
+    min-width: 14rem;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--md-border);
+    border-radius: 4px;
+    background: var(--md-bg);
+    color: var(--md-fg);
+    font: inherit;
+}
+
+[data-scope='richtext-link'][data-part='url'] {
+    overflow: hidden;
+    max-width: 18rem;
+    padding: 0 0.25rem;
+    color: var(--md-accent);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-scope='richtext-link'][data-part='apply'],
+[data-scope='richtext-link'][data-part='edit'],
+[data-scope='richtext-link'][data-part='remove'] {
+    padding: 0.3rem 0.5rem;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--md-fg);
+    font: inherit;
+    cursor: pointer;
+}
+
+[data-scope='richtext-link'][data-part='apply']:hover,
+[data-scope='richtext-link'][data-part='edit']:hover,
+[data-scope='richtext-link'][data-part='remove']:hover {
+    background: color-mix(in srgb, var(--md-accent) 14%, transparent);
 }

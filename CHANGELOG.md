@@ -19,6 +19,19 @@ workspace shares one version line.
   - `baseKeymap` binds Tab / Shift-Tab to the new registry commands
     `indentOrNextCell` / `outdentOrPrevCell`. Also new in the registry:
     `goToNextCell`, `goToPrevCell` and `alignColumnLeft|Center|Right|None`.
+- **Link editing in the DOM editor** (#72).
+  - Mod-k and the toolbar's link item open a link popover
+    (`<LinkPopover>`, scope `richtext-link`). Its URL field is prefilled from
+    the link under the caret. Enter applies, an empty URL or Remove unlinks,
+    and Escape cancels. Focus and the selection return to the text. It works
+    over a range across blocks too.
+  - With the caret in a link, the popover shows the URL (opens in a new tab,
+    sanitised; a rejected scheme is never an `href`), Edit and Remove.
+  - Core additions: `linkAt(state, ctx)`, and `setLink` with the caret inside
+    a link now retargets that link.
+  - `ToolbarContext.ui.openLinkEditor` lets a host offer its link UI to
+    toolbar items. Without it, the default link item keeps the placeholder
+    behaviour.
 - **Select across blocks in the DOM editor** (#66, part of #57).
   - **How to select**: drag across blocks, press Shift+Arrow past a block's
     edge, or Shift+click another block. Each block keeps its own

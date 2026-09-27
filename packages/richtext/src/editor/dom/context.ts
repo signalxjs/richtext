@@ -61,6 +61,17 @@ export interface EditorView {
     readonly blockMenuRev: PrimitiveSignal<number>;
     openBlockMenu(key: string, anchor: HTMLElement): void;
     closeBlockMenu(): void;
+    /** Whether the link editor (the popover's URL form) is open. Reactive through `linkRev`. */
+    linkEditing(): boolean;
+    readonly linkRev: PrimitiveSignal<number>;
+    openLinkEditor(): void;
+    closeLinkEditor(): void;
+    /** Put keyboard focus and the DOM selection back on the model's text selection (after a popover), across blocks too. */
+    restoreSelection(): void;
+    /** Set by the editor component: re-enter multi-block mode for a cross-block range, focus it and paint the range. */
+    restoreRange?(): void;
+    /** Bumped when focus enters or leaves the editor (for chrome that shows only while focused). */
+    readonly focusRev: PrimitiveSignal<number>;
     /** Wired to the root's `focusin` / `focusout` by the editor component. */
     focusIn(): void;
     focusOut(): void;
@@ -104,6 +115,9 @@ export function createEditorView(opts: CreateViewOptions): EditorView {
 
     let blockMenu: BlockMenuRequest | null = null;
     const blockMenuRev = signal(0);
+    let linkEditing = false;
+    const linkRev = signal(0);
+    const focusRev = signal(0);
 
     const view: EditorView = {
         editor,
@@ -120,6 +134,34 @@ export function createEditorView(opts: CreateViewOptions): EditorView {
             if (!blockMenu) return;
             blockMenu = null;
             blockMenuRev.value++;
+        },
+        linkEditing: () => {
+            track(linkRev.value);
+            return linkEditing;
+        },
+        linkRev,
+        focusRev,
+        openLinkEditor() {
+            if (linkEditing || opts.readOnly()) return;
+            linkEditing = true;
+            linkRev.value++;
+        },
+        closeLinkEditor() {
+            if (!linkEditing) return;
+            linkEditing = false;
+            linkRev.value++;
+        },
+        restoreSelection() {
+            const sel = editor.state.selection;
+            if (!sel || sel.mode !== 'text') return;
+            if (sel.anchor.key !== sel.head.key) {
+                view.restoreRange?.();
+                return;
+            }
+            const s = surfaces.get(sel.anchor.key);
+            if (!s) return;
+            s.focus();
+            s.setSelection({ start: Math.min(sel.anchor.offset, sel.head.offset), end: Math.max(sel.anchor.offset, sel.head.offset) });
         },
         root: opts.root,
         surfaces,
@@ -161,14 +203,21 @@ export function createEditorView(opts: CreateViewOptions): EditorView {
                 clearTimeout(blurTimer);
                 blurTimer = null;
             }
-            focusWithin = true;
+            if (!focusWithin) {
+                focusWithin = true;
+                focusRev.value++;
+            }
         },
         focusOut() {
             if (blurTimer !== null) clearTimeout(blurTimer);
             blurTimer = setTimeout(() => {
                 blurTimer = null;
                 const root = opts.root();
-                focusWithin = !!root && root.contains(root.ownerDocument.activeElement);
+                const next = !!root && root.contains(root.ownerDocument.activeElement);
+                if (next !== focusWithin) {
+                    focusWithin = next;
+                    focusRev.value++;
+                }
             }, 0);
         },
     };

@@ -12,6 +12,7 @@ export const EDITOR_SCOPE = 'richtext-editor';
 export const TOOLBAR_SCOPE = 'richtext-toolbar';
 export const BLOCK_MENU_SCOPE = 'richtext-block-menu';
 export const SUGGEST_SCOPE = 'richtext-suggest';
+export const LINK_SCOPE = 'richtext-link';
 
 export type EditorPart =
     | 'root'
@@ -37,6 +38,7 @@ export type EditorPart =
 export type ToolbarPart = 'root' | 'group' | 'item';
 export type BlockMenuPart = 'root' | 'item' | 'label' | 'separator';
 export type SuggestPart = 'root' | 'list' | 'item' | 'empty' | 'loading';
+export type LinkPart = 'root' | 'form' | 'input' | 'apply' | 'remove' | 'edit' | 'url';
 
 export interface ScopedPartAttrs {
     'data-scope': string;
@@ -51,6 +53,7 @@ export const editorPart = (part: EditorPart): ScopedPartAttrs => scopedPart(EDIT
 export const toolbarPart = (part: ToolbarPart): ScopedPartAttrs => scopedPart(TOOLBAR_SCOPE, part);
 export const blockMenuPart = (part: BlockMenuPart): ScopedPartAttrs => scopedPart(BLOCK_MENU_SCOPE, part);
 export const suggestPart = (part: SuggestPart): ScopedPartAttrs => scopedPart(SUGGEST_SCOPE, part);
+export const linkPart = (part: LinkPart): ScopedPartAttrs => scopedPart(LINK_SCOPE, part);
 
 /** `''` renders a bare boolean attribute; `undefined` omits it. */
 export const flag = (on: boolean): '' | undefined => (on ? '' : undefined);

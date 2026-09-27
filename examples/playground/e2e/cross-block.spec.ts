@@ -137,3 +137,17 @@ test('Escape turns a range into the block selection of its blocks; a click leave
     await page.keyboard.type('!');
     await expect(serialized(page)).toHaveText('one\n\ntwo\n\nthree!');
 });
+
+test('the link popover over a range: Escape gives the range back, and typing replaces it', async ({ page }) => {
+    await clickEdge(page, 'b-0', 'start');
+    await clickEdge(page, 'b-1', 'end', ['Shift']);
+    await expect(content(page)).toHaveAttribute('data-multi', '');
+    await page.keyboard.press(`${await modKey(page)}+k`);
+    const input = page.locator('#editor [data-scope="richtext-link"] [data-part="input"]');
+    await expect(input).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(input).toHaveCount(0);
+    await expect(content(page)).toHaveAttribute('data-multi', '');
+    await page.keyboard.type('X');
+    await expect(serialized(page)).toHaveText('X\n\nthree');
+});

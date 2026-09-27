@@ -58,6 +58,28 @@ export function listKindOf(list: List, item: ListItem): ListKind {
 // Links
 // ---------------------------------------------------------------------------
 
+/** The link under a single-block text selection: the caret at or inside a link, or a selection within one. */
+export interface LinkAt {
+    key: string;
+    from: number;
+    to: number;
+    url: string;
+    title?: string;
+}
+
+export function linkAt(state: EditorState, ctx: CommandContext): LinkAt | null {
+    const sel = textSel(state);
+    if (!sel) return null;
+    const flat = inlineFlat(state, sel.anchor.key, ctx);
+    if (!flat) return null;
+    const { from, to } = selectionRange(sel);
+    const span = flat.spans.find((s) => s.type === 'link' && s.start <= from && s.end >= to);
+    if (!span) return null;
+    const out: LinkAt = { key: sel.anchor.key, from: span.start, to: span.end, url: span.attrs?.url ?? '' };
+    if (span.attrs?.title) out.title = span.attrs.title;
+    return out;
+}
+
 export const setLink =
     (url: string, title?: string): Command =>
     (state, dispatch, ctx) => {
@@ -76,6 +98,13 @@ export const setLink =
         const { from, to } = selectionRange(sel);
         const flat = inlineFlat(state, sel.anchor.key, ctx);
         if (!flat) return false;
+        const existing = from === to ? linkAt(state, ctx) : null;
+        if (existing) {
+            // The caret in a link: retarget that link.
+            const next = addMark(removeMark(flat, 'link', existing.from, existing.to), 'link', existing.from, existing.to, attrs);
+            dispatch?.({ steps: [{ type: 'setInline', key: sel.anchor.key, flat: next }], selection: sel, meta: meta() });
+            return true;
+        }
         if (from === to) {
             // No selection: insert the url as its own linked text, as an autolink (`<url>`).
             const slice: InlineFlat = { text: url, spans: [{ start: 0, end: url.length, type: 'link', attrs: { ...attrs, autolink: 'true' } }] };

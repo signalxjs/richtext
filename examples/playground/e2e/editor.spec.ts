@@ -233,3 +233,28 @@ test('tables: Tab walks the cells and grows a row, ArrowDown keeps the column, t
     await page.locator('[data-scope="richtext-block-menu"] [data-action="table:addRowAfter"]').click();
     await expect(page.locator('#editor tr[data-part="table-row"]')).toHaveCount(4);
 });
+
+test('links: Mod-k links the selection, the caret in the link shows it, Edit and Remove work', async ({ page }) => {
+    await openEditor(page, 'see docs');
+    const p = block(page, 'b-0');
+    await p.click();
+    await page.keyboard.press(LINE_END);
+    for (let i = 0; i < 4; i++) await page.keyboard.press('Shift+ArrowLeft');
+    await page.keyboard.press('Control+k');
+    const input = page.locator('#editor [data-scope="richtext-link"] [data-part="input"]');
+    await expect(input).toBeFocused();
+    await input.fill('https://sigx.dev');
+    await page.keyboard.press('Enter');
+    await expect(serialized(page)).toHaveText('see [docs](https://sigx.dev)');
+    await expect(p).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    const bubble = page.locator('#editor [data-scope="richtext-link"][data-mode="view"]');
+    await expect(bubble.locator('a[data-part="url"]')).toHaveAttribute('href', 'https://sigx.dev');
+    await bubble.locator('[data-part="edit"]').click();
+    await input.fill('https://sigx.dev/richtext');
+    await page.keyboard.press('Enter');
+    await expect(serialized(page)).toHaveText('see [docs](https://sigx.dev/richtext)');
+    await p.click({ position: { x: (await p.boundingBox())!.width - 12, y: 8 } });
+    await bubble.locator('[data-part="remove"]').click();
+    await expect(serialized(page)).toHaveText('see docs');
+});

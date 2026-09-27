@@ -48,7 +48,8 @@ export type { Schema, NodeSpec, NodeRole, InlineFlatSpec, BlockMenuEntry } from 
 
 export * as commands from './registry.js';
 export { commands as commandRegistry, selectedBlockKeys, blocksToRoot, replaceSelectedBlocks, chain, sequence, overRange, copySelection } from './registry.js';
-export type { Command, CommandContext, CommandName, Dispatch, ListKind } from './registry.js';
+export type { Command, CommandContext, CommandName, Dispatch, ListKind, LinkAt } from './registry.js';
+export { linkAt } from './registry.js';
 
 export { orderedRange, rangeBlocks, normalizeTextRange, normalizeSelection, sliceDoc } from './range.js';
 export type { OrderedRange, RangeBlock } from './range.js';
@@ -66,7 +67,7 @@ export type { InputRule, InputRuleContext, EnterRule } from './input-rules.js';
 
 
 export { toolbarState, defaultToolbarItems } from './toolbar.js';
-export type { ToolbarItem, ToolbarState, ToolbarContext } from './toolbar.js';
+export type { ToolbarItem, ToolbarState, ToolbarContext, ToolbarUi } from './toolbar.js';
 
 export { createTriggerSessionManager, placeSuggestionPopup } from './trigger/index.js';
 export type {

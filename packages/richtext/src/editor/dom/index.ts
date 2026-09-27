@@ -17,6 +17,7 @@ export type { CodeBlockEditorProps } from './CodeBlockEditor.js';
 export { EditorToolbar } from './Toolbar.js';
 export type { EditorToolbarProps, ToolbarRenderItem } from './Toolbar.js';
 export { BlockMenu } from './BlockMenu.js';
+export { LinkPopover } from './LinkPopover.js';
 export { SuggestionPopup } from './SuggestionPopup.js';
 export type { SuggestionPopupProps, SuggestionRenderItem } from './SuggestionPopup.js';
 
@@ -36,5 +37,5 @@ export type { DomMentionOptions } from './mention.js';
 export { domEditorSlice, pluginAtomRenderers, pluginContainerViews } from './plugin-dom.js';
 export type { DomEditorSlice } from './plugin-dom.js';
 
-export { EDITOR_SCOPE, TOOLBAR_SCOPE, BLOCK_MENU_SCOPE, SUGGEST_SCOPE, editorPart, toolbarPart, blockMenuPart, suggestPart, scopedPart } from './anatomy.js';
-export type { EditorPart, ToolbarPart, BlockMenuPart, SuggestPart, ScopedPartAttrs } from './anatomy.js';
+export { EDITOR_SCOPE, TOOLBAR_SCOPE, BLOCK_MENU_SCOPE, SUGGEST_SCOPE, LINK_SCOPE, editorPart, toolbarPart, blockMenuPart, suggestPart, linkPart, scopedPart } from './anatomy.js';
+export type { EditorPart, ToolbarPart, BlockMenuPart, SuggestPart, LinkPart, ScopedPartAttrs } from './anatomy.js';

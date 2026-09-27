@@ -52,6 +52,8 @@ export interface MultiSelection {
      * on the range the user sees. Called before handling any input in the mode.
      */
     refresh(): void;
+    /** A cross-block range in the model: be the editing host with focus, and paint it now (after a popover closed). */
+    restore(): void;
     destroy(): void;
 }
 
@@ -458,6 +460,13 @@ export function createMultiSelection(view: EditorView): MultiSelection {
 
     return {
         refresh: onSelectionChange,
+        restore() {
+            const sel = editor.state.selection;
+            if (!content || view.readOnly() || !sel || sel.mode !== 'text' || !isCrossBlock(sel)) return;
+            enter(true);
+            if (!content.contains(content.ownerDocument.activeElement)) content.focus({ preventScroll: true });
+            paint();
+        },
         get active() {
             return active;
         },

@@ -34,7 +34,8 @@ export type EditorPart =
     | 'table-row'
     | 'table-cell'
     | 'live'
-    | 'bubble';
+    | 'bubble'
+    | 'drop-indicator';
 
 export type ToolbarPart = 'root' | 'group' | 'item';
 export type BlockMenuPart = 'root' | 'item' | 'label' | 'separator';

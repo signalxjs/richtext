@@ -450,3 +450,12 @@
     box-shadow: 0 6px 18px rgb(0 0 0 / 0.16);
 }
 
+/* ---- Block drag ------------------------------------------------------- */
+
+[data-scope='richtext-editor'][data-part='drop-indicator'] {
+    z-index: 5;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--md-accent);
+}
+

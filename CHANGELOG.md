@@ -19,6 +19,16 @@ workspace shares one version line.
   - `baseKeymap` binds Tab / Shift-Tab to the new registry commands
     `indentOrNextCell` / `outdentOrPrevCell`. Also new in the registry:
     `goToNextCell`, `goToPrevCell` and `alignColumnLeft|Center|Right|None`.
+- **Drag blocks by their handle** (#74).
+  - The block handle is draggable. It moves its block, or the whole block
+    selection it belongs to, among its siblings: top-level blocks, list items
+    or quote children. A drop indicator (`editorPart('drop-indicator')`)
+    shows the gap.
+  - New core command `moveBlocksTo(keys, index)`: one transaction, and the
+    moved blocks end block-selected.
+  - The handle no longer cancels `pointerdown`, because that suppressed the
+    native drag. The block menu takes focus when it opens and hands it back
+    after its action.
 - **Floating selection toolbar** (#73). `RichTextEditor`'s `floatingToolbar`
   prop shows a toolbar above a non-collapsed text selection, also across
   blocks, while the editor has focus. `true` gives the default items (bold,

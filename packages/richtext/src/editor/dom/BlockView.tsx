@@ -32,16 +32,16 @@ export type BlockViewProps = Define.Prop<'block', EditorBlock, true>;
 /** The handle button at the left of a block (opens the block menu). */
 const BlockHandle = component<{ blockKey: string }>(({ props }) => {
     const view = useEditorView();
-    const onPointerDown = (e: PointerEvent): void => {
-        // Keep the caret where it is; the menu acts on the block, not on focus.
-        e.preventDefault();
-    };
+    // No pointerdown cancel here: it would suppress the mousedown a native drag starts from. The block
+    // menu takes focus when it opens and gives it back to the selection it leaves.
     const onClick = (e: MouseEvent): void => {
         e.preventDefault();
         view.openBlockMenu(props.blockKey, e.currentTarget as HTMLElement);
     };
+    // The handle is also the drag handle: drag it to move the block (or the block selection it is in).
+    const onDragStart = (e: DragEvent): void => view.blockDrag?.start(props.blockKey, e);
     return () => (
-        <button {...editorPart('handle')} type="button" tabIndex={-1} contentEditable="false" aria-label="Block options" aria-haspopup="menu" onPointerDown={onPointerDown} onClick={onClick}>
+        <button {...editorPart('handle')} type="button" tabIndex={-1} contentEditable="false" aria-label="Block options, drag to move" aria-haspopup="menu" draggable="true" onClick={onClick} onDragStart={onDragStart}>
             <span aria-hidden="true">⋮⋮</span>
         </button>
     );

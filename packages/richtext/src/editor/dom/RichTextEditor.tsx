@@ -56,6 +56,7 @@ import type { AtomRenderer } from './inline-dom.js';
 import { defaultAtomRenderer } from './inline-dom.js';
 import { readPasteData } from './inline-surface.js';
 import { createMultiSelection } from './multi-selection.js';
+import { createBlockDrag } from './block-drag.js';
 import { SuggestionPopup, type SuggestionRenderItem } from './SuggestionPopup.js';
 import { EditorToolbar, type ToolbarRenderItem } from './Toolbar.js';
 import { pluginAtomRenderers, pluginContainerViews } from './plugin-dom.js';
@@ -250,7 +251,12 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
     defineProvide(useEditorView, () => view);
     const multi = createMultiSelection(view);
     view.restoreRange = () => multi.restore();
-    const setContent = (el: HTMLElement | null): void => multi.attach(el);
+    const blockDrag = createBlockDrag(view);
+    view.blockDrag = blockDrag;
+    const setContent = (el: HTMLElement | null): void => {
+        multi.attach(el);
+        blockDrag.attach(el);
+    };
 
     // -- models in -----------------------------------------------------------
 
@@ -492,6 +498,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
 
     onUnmounted(() => {
         multi.destroy();
+        blockDrag.destroy();
         stopListen();
         triggers?.close();
         setRoot(null);
@@ -550,6 +557,10 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
                     ))}
                 </div>
                 {toolbar === 'bottom' ? bar : null}
+                {(() => {
+                    const drop = blockDrag.indicator();
+                    return drop ? <div {...editorPart('drop-indicator')} aria-hidden="true" style={`position:absolute;pointer-events:none;left:${drop.left}px;top:${drop.top - 1}px;width:${drop.width}px`} /> : null;
+                })()}
                 <BlockMenu />
                 <LinkPopover />
                 {props.floatingToolbar ? (

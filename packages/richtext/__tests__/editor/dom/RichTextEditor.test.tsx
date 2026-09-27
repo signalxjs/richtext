@@ -215,6 +215,42 @@ describe('RichTextEditor', () => {
         expect(m.controller.getSource()).toBe('a\n');
     });
 
+    it('the block menu of a table adds and deletes rows and columns and aligns columns (#70)', async () => {
+        const m = await mount({ defaultSource: 'x\n\n| a | b |\n| - | - |\n| c | d |' });
+        const open = async (): Promise<HTMLElement> => {
+            (m.root.querySelector('[data-part=block][data-key="b-1"] > [data-part=handle]') as HTMLButtonElement).click();
+            await tick();
+            return m.root.querySelector('[data-scope=richtext-block-menu][role=menu]') as HTMLElement;
+        };
+        const act = async (id: string): Promise<void> => {
+            ((await open()).querySelector(`[data-action="${id}"]`) as HTMLButtonElement).click();
+            await tick();
+        };
+        const menu = await open();
+        expect(Array.from(menu.querySelectorAll('[data-action^="table:"]')).map((el) => el.getAttribute('data-action'))).toEqual([
+            'table:addRowBefore',
+            'table:addRowAfter',
+            'table:addColumnBefore',
+            'table:addColumnAfter',
+            'table:deleteRow',
+            'table:deleteColumn',
+            'table:alignLeft',
+            'table:alignCenter',
+            'table:alignRight',
+        ]);
+        // The caret is in the paragraph, not the table: the actions act on the first body cell.
+        (menu.querySelector('[data-action="table:addRowAfter"]') as HTMLButtonElement).click();
+        await tick();
+        expect(m.controller.getSource()).toBe('x\n\n| a | b |\n| --- | --- |\n| c | d |\n|  |  |\n');
+        // With the caret in a cell: that cell's row and column.
+        m.controller.editor.setSelection({ mode: 'text', anchor: { key: 'b-1.0.1', offset: 0 }, head: { key: 'b-1.0.1', offset: 0 } });
+        await act('table:alignRight');
+        expect(m.controller.getSource()).toBe('x\n\n| a | b |\n| --- | --: |\n| c | d |\n|  |  |\n');
+        m.controller.editor.setSelection({ mode: 'text', anchor: { key: 'b-1.0.0', offset: 0 }, head: { key: 'b-1.0.0', offset: 0 } });
+        await act('table:deleteColumn');
+        expect(m.controller.getSource()).toBe('x\n\n| b |\n| --: |\n| d |\n|  |\n');
+    });
+
     it('slash commands open a popup, filter by query and turn the block on Enter', async () => {
         const m = await mount({ defaultSource: '', plugins: [createSlashPlugin()] });
         const host = m.host('b-0');

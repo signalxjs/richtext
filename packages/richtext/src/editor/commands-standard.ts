@@ -545,6 +545,81 @@ export const setColumnAlign = (align: 'left' | 'center' | 'right' | null): Comma
         return { ...t, align: next };
     });
 
+/** A cell's text selected whole (typing replaces it, like moving between spreadsheet cells). */
+const selectCell = (state: EditorState, key: string, ctx: CommandContext): EditorSelection => textSelection(key, 0, lengthOf(entryOf(state, key)!.node, ctx));
+
+/** Tab in a table cell: select the next cell, row by row; from the last cell, add a row and move into it. */
+export const goToNextCell: Command = (state, dispatch, ctx) => {
+    const key = textSel(state)?.anchor.key;
+    const tc = key ? tableContext(state, key) : null;
+    if (!tc) return false;
+    const table = tc.table.node as Table;
+    const cols = tc.row.node.type === 'tableRow' ? (tc.row.node as TableRow).children.length : 0;
+    const tableKey = table.key!;
+    if (tc.cell.index + 1 < cols) {
+        dispatch?.({ steps: [], selection: selectCell(state, `${tableKey}.${tc.row.index}.${tc.cell.index + 1}`, ctx), meta: meta() });
+        return true;
+    }
+    if (tc.row.index + 1 < table.children.length) {
+        dispatch?.({ steps: [], selection: selectCell(state, `${tableKey}.${tc.row.index + 1}.0`, ctx), meta: meta() });
+        return true;
+    }
+    const grown: Table = { ...table, children: [...table.children, emptyRow(cols)] };
+    dispatch?.({ steps: [{ type: 'replaceBlock', key: tableKey, node: grown }], selection: textSelection(`${tableKey}.${table.children.length}.0`, 0), meta: meta() });
+    return true;
+};
+
+/** Shift-Tab in a table cell: select the previous cell; in the first cell, stay (the Tab is still handled). */
+export const goToPrevCell: Command = (state, dispatch, ctx) => {
+    const key = textSel(state)?.anchor.key;
+    const tc = key ? tableContext(state, key) : null;
+    if (!tc) return false;
+    const table = tc.table.node as Table;
+    const tableKey = table.key!;
+    let target: string | null = null;
+    if (tc.cell.index > 0) target = `${tableKey}.${tc.row.index}.${tc.cell.index - 1}`;
+    else if (tc.row.index > 0) target = `${tableKey}.${tc.row.index - 1}.${table.children[tc.row.index - 1].children.length - 1}`;
+    dispatch?.({ steps: [], selection: target ? selectCell(state, target, ctx) : state.selection, meta: meta() });
+    return true;
+};
+
+/**
+ * ArrowUp/Down in a table cell: the same column in the row above / below;
+ * past the table's edge, the editable block before / after it. With nothing
+ * there the caret stays (the key is still handled, so it never slides into
+ * the next cell of the same row). The view supplies the x-goal offset.
+ */
+export const moveInTable =
+    (dir: 'up' | 'down', offsetAt?: (key: string, edge: 'first' | 'last') => number): Command =>
+    (state, dispatch, ctx) => {
+        const sel = textSel(state);
+        const tc = sel ? tableContext(state, sel.head.key) : null;
+        if (!sel || !tc) return false;
+        const table = tc.table.node as Table;
+        const tableKey = table.key!;
+        const row = tc.row.index + (dir === 'down' ? 1 : -1);
+        const edge = dir === 'down' ? 'first' : 'last';
+        let target: string | null = null;
+        let fallback = 0;
+        if (row >= 0 && row < table.children.length) {
+            target = `${tableKey}.${row}.${Math.min(tc.cell.index, table.children[row].children.length - 1)}`;
+            fallback = sel.head.offset;
+        } else {
+            const index = state.index();
+            const cells = [`${tableKey}.0.0`, `${tableKey}.${table.children.length - 1}.${table.children[table.children.length - 1].children.length - 1}`];
+            target = dir === 'down' ? index.nextEditable(cells[1]) : index.prevEditable(cells[0]);
+            if (target) fallback = dir === 'down' ? 0 : lengthOf(entryOf(state, target)!.node, ctx);
+        }
+        if (!target) {
+            dispatch?.({ steps: [], selection: sel, meta: meta() });
+            return true;
+        }
+        const len = lengthOf(entryOf(state, target)!.node, ctx);
+        const offset = Math.max(0, Math.min(offsetAt?.(target, edge) ?? fallback, len));
+        dispatch?.({ steps: [], selection: textSelection(target, offset), meta: meta() });
+        return true;
+    };
+
 // ---------------------------------------------------------------------------
 // Named forms
 // ---------------------------------------------------------------------------

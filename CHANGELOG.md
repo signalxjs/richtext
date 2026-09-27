@@ -8,6 +8,27 @@ workspace shares one version line.
 
 ### Added
 
+- **Table editing** (#70).
+  - Tab and Shift+Tab move between cells (`goToNextCell` / `goToPrevCell`)
+    and select the cell's text. Tab in the last cell adds a row.
+  - ArrowUp/Down in a cell keep the column (`moveInTable`) and leave the table
+    at its edges.
+  - A table's block menu adds rows above or below and columns left or right,
+    deletes a row or column, and aligns the column. It acts on the cell with
+    the caret, else the first body cell.
+  - `baseKeymap` binds Tab / Shift-Tab to the new registry commands
+    `indentOrNextCell` / `outdentOrPrevCell`. Also new in the registry:
+    `goToNextCell`, `goToPrevCell` and `alignColumnLeft|Center|Right|None`.
+
+### Fixed
+
+- **ArrowUp/Down at a block's first or last line** could miss the edge when
+  the host is taller than its text (padding, a min-height, a table cell
+  stretched by its row). The caret stayed put instead of moving to the next
+  block. The edge is now measured against the content's own line boxes.
+
+### Added
+
 - **Select across blocks in the DOM editor** (#66, part of #57).
   - **How to select**: drag across blocks, press Shift+Arrow past a block's
     edge, or Shift+click another block. Each block keeps its own

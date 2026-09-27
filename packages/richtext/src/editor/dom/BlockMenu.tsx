@@ -1,6 +1,7 @@
 /**
  * `<BlockMenu>` — the menu a block handle opens: turn the block into
- * another type, move it, duplicate it, delete it. `role="menu"` with roving
+ * another type, move it, duplicate it, delete it; on a table, add and
+ * delete rows and columns and align the column. `role="menu"` with roving
  * focus; Escape or an outside pointer-down closes it and focus returns to
  * the editor.
  */
@@ -8,7 +9,9 @@
 import { component, type JSXElement } from '@sigx/runtime-core';
 import type {} from '@sigx/runtime-dom';
 import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp, selectBlock, type Command } from '../commands.js';
+import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, setColumnAlign } from '../commands-standard.js';
 import { turnIntoCommand } from '../menu.js';
+import { textSelection } from '../state.js';
 import { blockMenuPart } from './anatomy.js';
 import { useEditorView } from './context.js';
 import { track } from './context.js';
@@ -19,7 +22,21 @@ interface MenuAction {
     label: string;
     icon?: string;
     command: Command;
+    /** A table action: runs with the caret in a cell of the menu's table instead of on the block selection. */
+    cell?: boolean;
 }
+
+const TABLE_ACTIONS: MenuAction[] = [
+    { id: 'table:addRowBefore', label: 'Add row above', icon: 'row-insert-top', command: addRowBefore, cell: true },
+    { id: 'table:addRowAfter', label: 'Add row below', icon: 'row-insert-bottom', command: addRowAfter, cell: true },
+    { id: 'table:addColumnBefore', label: 'Add column left', icon: 'column-insert-left', command: addColumnBefore, cell: true },
+    { id: 'table:addColumnAfter', label: 'Add column right', icon: 'column-insert-right', command: addColumnAfter, cell: true },
+    { id: 'table:deleteRow', label: 'Delete row', icon: 'row-remove', command: deleteRow, cell: true },
+    { id: 'table:deleteColumn', label: 'Delete column', icon: 'column-remove', command: deleteColumn, cell: true },
+    { id: 'table:alignLeft', label: 'Align column left', icon: 'align-left', command: setColumnAlign('left'), cell: true },
+    { id: 'table:alignCenter', label: 'Align column center', icon: 'align-center', command: setColumnAlign('center'), cell: true },
+    { id: 'table:alignRight', label: 'Align column right', icon: 'align-right', command: setColumnAlign('right'), cell: true },
+];
 
 export const BlockMenu = component(({ onUnmounted }) => {
     const view = useEditorView();
@@ -46,13 +63,24 @@ export const BlockMenu = component(({ onUnmounted }) => {
 
     onUnmounted(() => dispose?.());
 
-    const run = (command: Command): void => {
+    const run = (action: MenuAction): void => {
         const req = view.blockMenu();
         if (!req) return;
         view.closeBlockMenu();
+        if (action.cell) {
+            // Table actions act on a cell: the one with the caret when it is in this table, else the first body cell.
+            const sel = editor.state.selection;
+            const inTable = sel?.mode === 'text' && sel.anchor.key === sel.head.key && sel.anchor.key.startsWith(req.key + '.');
+            if (!inTable) {
+                const rows = (editor.state.index().get(req.key)?.node as { children?: unknown[] } | undefined)?.children?.length ?? 0;
+                editor.setSelection(textSelection(`${req.key}.${rows > 1 ? 1 : 0}.0`, 0));
+            }
+            editor.run(action.command);
+            return;
+        }
         // Commands act on the selection: select the block first.
         editor.run(selectBlock(req.key));
-        editor.run(command);
+        editor.run(action.command);
         if (editor.state.selection?.mode === 'block') view.focusRoot();
     };
 
@@ -84,9 +112,10 @@ export const BlockMenu = component(({ onUnmounted }) => {
             { id: 'duplicate', label: 'Duplicate', icon: 'copy', command: duplicateBlock },
             { id: 'delete', label: 'Delete', icon: 'trash', command: deleteBlock },
         ];
-        const pos = anchoredPosition(req.anchor, root, 280);
+        const table = role === 'table' ? TABLE_ACTIONS : [];
+        const pos = anchoredPosition(req.anchor, root, table.length ? 520 : 280);
         const item = (a: MenuAction): JSXElement => (
-            <button key={a.id} {...blockMenuPart('item')} type="button" role="menuitem" data-action={a.id} data-icon={a.icon} tabIndex={-1} onClick={() => run(a.command)}>
+            <button key={a.id} {...blockMenuPart('item')} type="button" role="menuitem" data-action={a.id} data-icon={a.icon} tabIndex={-1} onClick={() => run(a)}>
                 {a.label}
             </button>
         );
@@ -98,6 +127,15 @@ export const BlockMenu = component(({ onUnmounted }) => {
                             Turn into
                         </div>
                         {turnInto.map(item)}
+                        <div {...blockMenuPart('separator')} role="separator" />
+                    </>
+                ) : null}
+                {table.length ? (
+                    <>
+                        <div {...blockMenuPart('label')} role="presentation">
+                            Table
+                        </div>
+                        {table.map(item)}
                         <div {...blockMenuPart('separator')} role="separator" />
                     </>
                 ) : null}

@@ -110,13 +110,24 @@ export function relativeCaretRect(rect: DOMRect, origin: Element): CaretRect {
     return { x: rect.left - o.left, y: rect.top - o.top, height: rect.height };
 }
 
-/** Whether a caret rect sits on the first / last visual line of `host` (true when geometry is unavailable). */
+/**
+ * Whether a caret rect sits on the first / last visual line of `host` (true when geometry is unavailable).
+ * Measured against the content's own line boxes, not the host's box: a host taller than its text
+ * (padding, a min-height, a table cell stretched by its row) would otherwise hide the edge.
+ */
 export function onEdgeLine(host: Element, caret: DOMRect | null, edge: 'first' | 'last'): boolean {
     if (!caret) return true;
     const h = host.getBoundingClientRect();
     if (h.height === 0 && caret.height === 0) return true;
+    const range = host.ownerDocument.createRange();
+    range.selectNodeContents(host);
+    const lines = Array.from(range.getClientRects()).filter((r) => r.height > 0);
+    // An empty host is one line.
+    if (!lines.length) return true;
+    const top = Math.min(...lines.map((r) => r.top));
+    const bottom = Math.max(...lines.map((r) => r.bottom));
     const tolerance = Math.max(2, caret.height / 2);
-    return edge === 'first' ? caret.top - h.top < tolerance : h.bottom - caret.bottom < tolerance;
+    return edge === 'first' ? caret.top - top < tolerance : bottom - caret.bottom < tolerance;
 }
 
 /** The DOM point under client coordinates, when the browser can tell. */

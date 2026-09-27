@@ -214,3 +214,22 @@ test('pasting markdown inserts blocks', async ({ page }) => {
     await expect(page.locator('#editor [data-part="inline"][data-type="heading"]')).toHaveText('Pasted');
     await expect(page.locator('#editor [data-part="list-item"]')).toHaveCount(2);
 });
+
+test('tables: Tab walks the cells and grows a row, ArrowDown keeps the column, the menu adds rows', async ({ page }) => {
+    await openEditor(page, '| a | b |\n| - | - |\n| c | d |');
+    const cell = (key: string) => page.locator(`#editor [data-part="inline"][data-key="${key}"]`);
+    await cell('b-0.0.0').click();
+    await page.keyboard.press('Tab');
+    await page.keyboard.type('X');
+    await expect(cell('b-0.0.1')).toHaveText('X');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.type('Y');
+    await expect(cell('b-0.1.1')).toHaveText(/Y/);
+    await page.keyboard.press('Tab');
+    await expect(cell('b-0.2.0')).toBeFocused();
+    await page.keyboard.type('Z');
+    await expect(serialized(page)).toHaveText(/\| Z \|  \|\s*$/);
+    await page.locator('#editor [data-part="block"][data-key="b-0"] > [data-part="handle"]').click();
+    await page.locator('[data-scope="richtext-block-menu"] [data-action="table:addRowAfter"]').click();
+    await expect(page.locator('#editor tr[data-part="table-row"]')).toHaveCount(4);
+});

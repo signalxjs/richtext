@@ -19,6 +19,14 @@ workspace shares one version line.
   - `baseKeymap` binds Tab / Shift-Tab to the new registry commands
     `indentOrNextCell` / `outdentOrPrevCell`. Also new in the registry:
     `goToNextCell`, `goToPrevCell` and `alignColumnLeft|Center|Right|None`.
+- **Floating selection toolbar** (#73). `RichTextEditor`'s `floatingToolbar`
+  prop shows a toolbar above a non-collapsed text selection, also across
+  blocks, while the editor has focus. `true` gives the default items (bold,
+  italic, strike, inline code, link); an array gives your own. It is hidden
+  for a caret, in code blocks, read-only, while composing, while the link
+  popover is open and during a suggestion session. It is an `EditorToolbar`
+  inside an `editorPart('bubble')` wrapper. Also exported: `FloatingToolbar`
+  and `FLOATING_TOOLBAR_ITEMS`.
 - **Link editing in the DOM editor** (#72).
   - Mod-k and the toolbar's link item open a link popover
     (`<LinkPopover>`, scope `richtext-link`). Its URL field is prefilled from

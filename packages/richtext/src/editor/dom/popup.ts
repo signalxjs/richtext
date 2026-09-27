@@ -1,8 +1,11 @@
 /**
  * Small popup helpers shared by the block menu and the suggestion popup:
  * dismiss on an outside pointer-down or Escape, anchor-relative placement
- * inside the editor root, and roving focus over a list of items.
+ * inside the editor root, the box of the selection, and roving focus over
+ * a list of items.
  */
+
+import { rangeIn } from './selection.js';
 
 /** Call `onDismiss` on a pointer-down outside `el` (and its anchor) or on Escape. Returns the disposer. */
 export function onDismiss(el: HTMLElement, onDismissFn: () => void, anchor?: HTMLElement | null): () => void {
@@ -70,3 +73,36 @@ export function roveList(list: HTMLElement, e: KeyboardEvent, selector: string):
     items[next].focus();
     return true;
 }
+
+/** Where the current selection sits, in the coordinate space of `root` (which must be positioned). */
+export interface SelectionBox {
+    left: number;
+    /** Top of the selection's first line. */
+    top: number;
+    /** Bottom of its last line. */
+    bottom: number;
+}
+
+/**
+ * The box of the DOM selection when it lies in `root` (a caret or a range, across
+ * blocks too); `fallback` (a surface's caret rect, root-relative) otherwise.
+ */
+export function selectionBox(root: HTMLElement, fallback?: () => { x: number; y: number; height: number } | null): SelectionBox | null {
+    const r = root.getBoundingClientRect();
+    // Both ends inside the root (a drag out of the editor is not ours); composed ranges recover them in a shadow root.
+    const ends = rangeIn(root);
+    if (ends) {
+        const range = root.ownerDocument.createRange();
+        const forward = ends.startContainer === ends.endContainer ? ends.startOffset <= ends.endOffset : (ends.startContainer.compareDocumentPosition(ends.endContainer) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+        const [a, b] = forward ? [[ends.startContainer, ends.startOffset], [ends.endContainer, ends.endOffset]] : [[ends.endContainer, ends.endOffset], [ends.startContainer, ends.startOffset]];
+        range.setStart(a[0] as Node, a[1] as number);
+        range.setEnd(b[0] as Node, b[1] as number);
+        const rects = Array.from(range.getClientRects()).filter((x) => x.width || x.height);
+        const box = rects.length ? null : range.getBoundingClientRect();
+        if (rects.length) return { left: rects[0].left - r.left, top: rects[0].top - r.top, bottom: rects[rects.length - 1].bottom - r.top };
+        if (box && (box.width || box.height)) return { left: box.left - r.left, top: box.top - r.top, bottom: box.bottom - r.top };
+    }
+    const caret = fallback?.();
+    return caret ? { left: caret.x, top: caret.y, bottom: caret.y + caret.height } : null;
+}
+

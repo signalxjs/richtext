@@ -434,3 +434,19 @@
 [data-scope='richtext-link'][data-part='remove']:hover {
     background: color-mix(in srgb, var(--md-accent) 14%, transparent);
 }
+
+/* ---- Floating toolbar ------------------------------------------------- */
+
+[data-scope='richtext-editor'][data-part='bubble'] {
+    z-index: 10;
+}
+
+[data-scope='richtext-editor'][data-part='bubble'] [data-scope='richtext-toolbar'][data-part='root'] {
+    margin: 0;
+    padding: 0.2rem;
+    border: 1px solid var(--md-border);
+    border-radius: var(--md-radius);
+    background: var(--md-bg);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.16);
+}
+

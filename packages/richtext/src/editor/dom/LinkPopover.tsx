@@ -20,7 +20,7 @@ import { linkAt, setLink, unsetLink } from '../commands-standard.js';
 import { flag, linkPart } from './anatomy.js';
 import { useEditorView, type EditorView } from './context.js';
 import { track } from './context.js';
-import { selectionFor } from './selection.js';
+import { selectionBox } from './popup.js';
 
 interface Place {
     left: number;
@@ -31,20 +31,10 @@ interface Place {
 function placeUnderSelection(view: EditorView): Place | null {
     const root = view.root();
     if (!root) return null;
-    const r = root.getBoundingClientRect();
-    const dom = selectionFor(root);
-    if (dom && dom.rangeCount && root.contains(dom.anchorNode)) {
-        const range = dom.getRangeAt(0);
-        const rects = range.getClientRects();
-        const box = rects.length ? rects[0] : range.getBoundingClientRect();
-        if (box.width || box.height) return { left: box.left - r.left, top: (rects.length ? rects[rects.length - 1].bottom : box.bottom) - r.top + 4 };
-    }
     const sel = view.editor.state.selection;
-    if (sel?.mode === 'text') {
-        const caret = (view.surfaces.get(sel.head.key) as { caretRect?: () => { x: number; y: number; height: number } | null } | undefined)?.caretRect?.();
-        if (caret) return { left: caret.x, top: caret.y + caret.height + 4 };
-    }
-    return { left: 0, top: 0 };
+    const surface = sel?.mode === 'text' ? (view.surfaces.get(sel.head.key) as { caretRect?: () => { x: number; y: number; height: number } | null } | undefined) : undefined;
+    const box = selectionBox(root, () => surface?.caretRect?.() ?? null);
+    return box ? { left: box.left, top: box.bottom + 4 } : { left: 0, top: 0 };
 }
 
 export const LinkPopover = component(({ onUnmounted }) => {

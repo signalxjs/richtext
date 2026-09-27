@@ -300,6 +300,7 @@ export const App = component(({ signal, onUnmounted }) => {
                                 plugins={EDITOR_PLUGINS}
                                 components={{ mention: MentionChip }}
                                 placeholder="Write, or type / for blocks and @ to mention…"
+                                floatingToolbar
                             />
                         </div>
                     </section>

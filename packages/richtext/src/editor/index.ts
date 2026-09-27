@@ -47,6 +47,7 @@ export { createSchema, standardNodes, standardSchema } from '../schema/index.js'
 export type { Schema, NodeSpec, NodeRole, InlineFlatSpec, BlockMenuEntry } from '../schema/index.js';
 
 export * as commands from './registry.js';
+export { moveBlocksTo } from './registry.js';
 export { commands as commandRegistry, selectedBlockKeys, blocksToRoot, replaceSelectedBlocks, chain, sequence, overRange, copySelection } from './registry.js';
 export type { Command, CommandContext, CommandName, Dispatch, ListKind, LinkAt } from './registry.js';
 export { linkAt } from './registry.js';

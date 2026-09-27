@@ -272,3 +272,21 @@ test('floating toolbar: a selection shows it, a button formats, a caret hides it
     await page.keyboard.press('ArrowRight');
     await expect(bubble).toHaveCount(0);
 });
+
+test('blocks move by dragging their handle; a block selection moves as one', async ({ page }) => {
+    await openEditor(page, 'one\n\ntwo\n\nthree\n\nfour');
+    const wrapper = (key: string) => page.locator(`#editor [data-part="block"][data-key="${key}"]`);
+    const handle = (key: string) => wrapper(key).locator('> [data-part="handle"]');
+    const bottom = async (key: string) => ({ x: 24, y: (await wrapper(key).boundingBox())!.height - 3 });
+    await wrapper('b-0').hover();
+    await handle('b-0').dragTo(wrapper('b-2'), { targetPosition: await bottom('b-2') });
+    await expect(serialized(page)).toHaveText('two\n\nthree\n\none\n\nfour');
+    await expect(editor(page)).toHaveAttribute('data-mode', 'block');
+    // Select two blocks, drag them to the top.
+    await block(page, 'b-2').click();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Shift+ArrowDown');
+    await wrapper('b-2').hover();
+    await handle('b-2').dragTo(wrapper('b-0'), { targetPosition: { x: 24, y: 3 } });
+    await expect(serialized(page)).toHaveText('one\n\nfour\n\ntwo\n\nthree');
+});

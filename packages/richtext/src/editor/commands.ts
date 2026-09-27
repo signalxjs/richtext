@@ -745,6 +745,34 @@ function moveRunBy(state: EditorState, keys: readonly string[], delta: -1 | 1, d
     return true;
 }
 
+/**
+ * Move a contiguous run of sibling blocks to `index`, an insertion point in
+ * their parent's children as they are now (`0` … `length`). One
+ * transaction; the moved blocks end block-selected. Refused for a no-op
+ * (the run's own place), keys under different parents, a gap in the run, an
+ * index out of range, and isolating parents (a table's rows keep their header).
+ */
+export const moveBlocksTo =
+    (keys: readonly string[], index: number): Command =>
+    (state, dispatch, ctx) => {
+        const entries = keys.map((k) => entryOf(state, k));
+        if (!entries.length || entries.some((e) => !e)) return false;
+        const run = (entries as BlockEntry[]).slice().sort((a, b) => a.index - b.index);
+        const parentKey = run[0].parentKey;
+        if (run.some((e, i) => e.parentKey !== parentKey || e.index !== run[0].index + i)) return false;
+        if (parentKey !== null && isolating(run[0].parent.type, ctx)) return false;
+        const siblings = (run[0].parent as { children: EditorBlock[] }).children;
+        const first = run[0].index;
+        const last = run[run.length - 1].index;
+        if (index < 0 || index > siblings.length || (index >= first && index <= last + 1)) return false;
+        const steps: Step[] = [];
+        for (let i = run.length - 1; i >= 0; i--) steps.push({ type: 'removeBlock', parentKey, index: run[i].index });
+        const target = index > last ? index - run.length : index;
+        run.forEach((e, i) => steps.push({ type: 'insertBlock', parentKey, index: target + i, node: e.node as BlockContent }));
+        dispatch?.({ steps, selection: blockSelection(keyAt(parentKey, target), keyAt(parentKey, target + run.length - 1)), meta: meta() });
+        return true;
+    };
+
 export const moveBlockUp: Command = moveBy(-1);
 export const moveBlockDown: Command = moveBy(1);
 

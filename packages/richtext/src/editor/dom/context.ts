@@ -70,6 +70,8 @@ export interface EditorView {
     restoreSelection(): void;
     /** Set by the editor component: re-enter multi-block mode for a cross-block range, focus it and paint the range. */
     restoreRange?(): void;
+    /** Block drag and drop, set by the editor component (block handles start drags through it). */
+    blockDrag?: { start(key: string, e: DragEvent): void };
     /** Bumped when focus enters or leaves the editor (for chrome that shows only while focused). */
     readonly focusRev: PrimitiveSignal<number>;
     /** Wired to the root's `focusin` / `focusout` by the editor component. */

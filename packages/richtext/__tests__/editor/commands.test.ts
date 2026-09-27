@@ -550,6 +550,34 @@ describe('links under the caret (#72)', () => {
     });
 });
 
+describe('moveBlocksTo (#74)', () => {
+    it('moves one block to an insertion index among its siblings', () => {
+        const down = run('a\n\nb\n\nc', null, C.moveBlocksTo(['b-0'], 3));
+        expect(down.md).toBe('b\n\nc\n\na\n');
+        expect(down.state.selection).toEqual(blockSelection('b-2'));
+        const up = run('a\n\nb\n\nc', null, C.moveBlocksTo(['b-2'], 0));
+        expect(up.md).toBe('c\n\na\n\nb\n');
+        expect(up.state.selection).toEqual(blockSelection('b-0'));
+    });
+
+    it('moves a run, keeping its order', () => {
+        const r = run('a\n\nb\n\nc\n\nd', null, C.moveBlocksTo(['b-0', 'b-1'], 3));
+        expect(r.md).toBe('c\n\na\n\nb\n\nd\n');
+        expect(r.state.selection).toEqual(blockSelection('b-1', 'b-2'));
+    });
+
+    it('reorders list items', () => {
+        expect(run('- a\n- b\n- c', null, C.moveBlocksTo(['b-0.2'], 0)).md).toBe('- c\n- a\n- b\n');
+    });
+
+    it('refuses a no-op, keys under different parents, and an out-of-range index', () => {
+        expect(run('a\n\nb', null, C.moveBlocksTo(['b-0'], 0)).ok).toBe(false);
+        expect(run('a\n\nb', null, C.moveBlocksTo(['b-0'], 1)).ok).toBe(false);
+        expect(run('a\n\n- b', null, C.moveBlocksTo(['b-0', 'b-1.0'], 0)).ok).toBe(false);
+        expect(run('a\n\nb', null, C.moveBlocksTo(['b-0'], 5)).ok).toBe(false);
+    });
+});
+
 describe('commands registry', () => {
     it('exposes every named command as a Command', () => {
         for (const [name, cmd] of Object.entries(C.commands)) {

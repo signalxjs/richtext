@@ -5,7 +5,7 @@
  * a list of items.
  */
 
-import { selectionFor } from './selection.js';
+import { rangeIn } from './selection.js';
 
 /** Call `onDismiss` on a pointer-down outside `el` (and its anchor) or on Escape. Returns the disposer. */
 export function onDismiss(el: HTMLElement, onDismissFn: () => void, anchor?: HTMLElement | null): () => void {
@@ -89,9 +89,14 @@ export interface SelectionBox {
  */
 export function selectionBox(root: HTMLElement, fallback?: () => { x: number; y: number; height: number } | null): SelectionBox | null {
     const r = root.getBoundingClientRect();
-    const dom = selectionFor(root);
-    if (dom && dom.rangeCount && root.contains(dom.anchorNode)) {
-        const range = dom.getRangeAt(0);
+    // Both ends inside the root (a drag out of the editor is not ours); composed ranges recover them in a shadow root.
+    const ends = rangeIn(root);
+    if (ends) {
+        const range = root.ownerDocument.createRange();
+        const forward = ends.startContainer === ends.endContainer ? ends.startOffset <= ends.endOffset : (ends.startContainer.compareDocumentPosition(ends.endContainer) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+        const [a, b] = forward ? [[ends.startContainer, ends.startOffset], [ends.endContainer, ends.endOffset]] : [[ends.endContainer, ends.endOffset], [ends.startContainer, ends.startOffset]];
+        range.setStart(a[0] as Node, a[1] as number);
+        range.setEnd(b[0] as Node, b[1] as number);
         const rects = Array.from(range.getClientRects()).filter((x) => x.width || x.height);
         const box = rects.length ? null : range.getBoundingClientRect();
         if (rects.length) return { left: rects[0].left - r.left, top: rects[0].top - r.top, bottom: rects[rects.length - 1].bottom - r.top };

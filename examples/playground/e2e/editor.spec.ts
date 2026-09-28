@@ -290,3 +290,26 @@ test('blocks move by dragging their handle; a block selection moves as one', asy
     await handle('b-2').dragTo(wrapper('b-0'), { targetPosition: { x: 24, y: 3 } });
     await expect(serialized(page)).toHaveText('one\n\nfour\n\ntwo\n\nthree');
 });
+
+test('marks toggle at a caret for the text typed next; H1 toggles back to a paragraph', async ({ page }) => {
+    const p = block(page, 'b-0');
+    const bar = (id: string) => page.locator(`#editor > [data-scope="richtext-toolbar"] [data-item="${id}"]`);
+    await p.click();
+    await page.keyboard.press(LINE_END);
+    await bar('bold').click();
+    await expect(bar('bold')).toHaveAttribute('data-state', 'on');
+    await page.keyboard.type(' big');
+    await expect(serialized(page)).toHaveText('hello **big**');
+    await bar('bold').click();
+    await page.keyboard.type(' end');
+    await expect(serialized(page)).toHaveText('hello **big** end');
+    // The keyboard does the same.
+    await page.keyboard.press('Control+i');
+    await page.keyboard.type('Z');
+    await expect(serialized(page)).toHaveText('hello **big** end*Z*');
+    await bar('h1').click();
+    await expect(serialized(page)).toHaveText('# hello **big** end*Z*');
+    await bar('h1').click();
+    await expect(serialized(page)).toHaveText('hello **big** end*Z*');
+    await expect(bar('h1')).toHaveAttribute('data-state', 'off');
+});

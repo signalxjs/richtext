@@ -170,6 +170,12 @@ export interface EditorState {
     readonly rev: number;
     /** An inline surface has an open IME composition. */
     readonly composing: boolean;
+    /**
+     * Marks for the text typed next at a collapsed caret, set by toggling a
+     * mark there (ProseMirror's stored marks); `null` = inherit from the
+     * caret. Any edit or selection change clears them.
+     */
+    readonly storedMarks: readonly string[] | null;
     /** The block index, built on first use and memoised on this state. */
     index(): BlockIndex;
 }
@@ -213,13 +219,14 @@ function hasKeys(node: EditorBlock, schema: Schema): boolean {
     return ((node as { children: EditorBlock[] }).children ?? []).every((c) => hasKeys(c, schema));
 }
 
-export function makeState(doc: Root, selection: EditorSelection, rev: number, composing: boolean, schema: Schema): EditorState {
+export function makeState(doc: Root, selection: EditorSelection, rev: number, composing: boolean, schema: Schema, storedMarks: readonly string[] | null = null): EditorState {
     let index: BlockIndex | null = null;
     return {
         doc,
         selection,
         rev,
         composing,
+        storedMarks,
         index: () => (index ??= buildIndex(doc, schema)),
     };
 }

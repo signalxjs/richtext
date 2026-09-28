@@ -176,7 +176,7 @@ export function createEditor(options: EditorOptions = {}): Editor {
         else if (docChanged && tr.meta.addToHistory !== false) history.record(tr, inverse, prev.selection, next.selection);
         if (tr.meta.origin === 'history' || tr.meta.origin === 'external') history.closeGroup();
         if (docChanged) rev.value++;
-        if (docChanged || !selectionEquals(prev.selection, next.selection) || prev.composing !== next.composing) selRev.value++;
+        if (docChanged || !selectionEquals(prev.selection, next.selection) || prev.composing !== next.composing || prev.storedMarks !== next.storedMarks) selRev.value++;
         for (const l of listeners) l(tr, next, prev);
         if (!selectionEquals(prev.selection, next.selection)) options.onSelectionChange?.(next.selection);
         if (docChanged && !next.composing) options.onChange?.({ state: next, transaction: tr });

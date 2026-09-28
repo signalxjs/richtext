@@ -14,5 +14,6 @@ export function bridgeHost(view: EditorView): BridgeHost {
         schema: editor.schema,
         valueOf: editor.valueOf,
         focused: editor.focused,
+        storedMarks: () => editor.state.storedMarks,
     };
 }

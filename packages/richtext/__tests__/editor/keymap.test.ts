@@ -37,7 +37,7 @@ describe('baseKeymap', () => {
         expect(map.get('Mod-z')).toBe('undo');
         expect(map.get('Mod-Shift-z')).toBe('redo');
         expect(map.get('Mod-y')).toBe('redo');
-        expect(map.get('Mod-Alt-3')).toBe(commands.setHeading3);
+        expect(map.get('Mod-Alt-3')).toBe(commands.toggleHeading3);
         expect(map.get('Mod-Shift-.')).toBe(commands.wrapInBlockquote);
     });
 });
@@ -80,8 +80,8 @@ describe('runKeymap', () => {
 
     it('returns false for unbound keys and when the command does not apply', () => {
         expect(press('hello', textSelection('b-0', 1), 'F5').result).toBe(false);
-        // A collapsed selection cannot toggle a mark.
-        expect(press('hello', textSelection('b-0', 1), 'Mod-b').result).toBe(false);
+        // Leaving a code block when not in one.
+        expect(press('hello', textSelection('b-0', 1), 'Mod-Enter').result).toBe(false);
         // Tab outside a list.
         expect(press('hello', textSelection('b-0', 1), 'Tab').result).toBe(false);
     });

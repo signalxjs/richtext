@@ -137,7 +137,7 @@ describe('sequence', () => {
     it('applies only when both commands do', () => {
         const dispatched: Transaction[] = [];
         const s = state('ab', textSelection('b-0', 1));
-        expect(C.sequence(C.insertText('X'), C.toggleMark('strong'))(s, (t) => dispatched.push(t), ctx)).toBe(false);
+        expect(C.sequence(C.insertText('X'), C.indentListItem)(s, (t) => dispatched.push(t), ctx)).toBe(false);
         expect(dispatched).toEqual([]);
     });
 });

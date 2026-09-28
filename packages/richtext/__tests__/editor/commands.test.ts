@@ -49,7 +49,11 @@ describe('inline commands', () => {
         const on = run('hello world', at('b-0', 0, 5), C.toggleMark('strong'));
         expect(on.md).toBe('**hello** world\n');
         expect(run('**hello** world', at('b-0', 0, 5), C.toggleMark('strong')).md).toBe('hello world\n');
-        expect(run('hello', at('b-0', 2), C.toggleMark('strong')).ok).toBe(false);
+        // A caret stores the mark for the text typed next (#80); the document is untouched.
+        const caret = run('hello', at('b-0', 2), C.toggleMark('strong'));
+        expect(caret.ok).toBe(true);
+        expect(caret.md).toBe('hello\n');
+        expect(caret.state.storedMarks).toEqual(['strong']);
     });
 
     it('setLink and unsetLink', () => {
@@ -578,13 +582,39 @@ describe('moveBlocksTo (#74)', () => {
     });
 });
 
+describe('marks at a caret and heading toggles (#80)', () => {
+    it('toggleMark at a caret stores marks from those at the caret, and insertText applies them', () => {
+        const on = run('hello', at('b-0', 5), C.toggleMark('strong'));
+        expect(on.ok).toBe(true);
+        expect(on.state.storedMarks).toEqual(['strong']);
+        expect(on.md).toBe('hello\n');
+        const typed = C.insertText('X')(on.state, (tr) => (on.tr = tr), ctx) && applyTransaction(on.state, on.tr!, ctx).state;
+        expect(typed && toMarkdown(typed.doc)).toBe('hello**X**\n');
+        // Toggled twice at the same caret: back off.
+        const twice = C.toggleMark('strong')(on.state, (tr) => (on.tr = tr), ctx) && applyTransaction(on.state, on.tr!, ctx).state;
+        expect(twice && twice.storedMarks).toEqual([]);
+        // Inside an italic word the stored set starts from the italic.
+        expect(run('*word*', at('b-0', 2), C.toggleMark('strong')).state.storedMarks).toEqual(['emphasis', 'strong']);
+    });
+
+    it('toggleHeading turns a heading of that depth back into a paragraph, anything else into the heading', () => {
+        expect(run('hello', at('b-0', 1), C.toggleHeading(1)).md).toBe('# hello\n');
+        expect(run('# hello', at('b-0', 1), C.toggleHeading(1)).md).toBe('hello\n');
+        expect(run('## hello', at('b-0', 1), C.toggleHeading(1)).md).toBe('# hello\n');
+        expect(run('# a\n\nb', blockSelection('b-0', 'b-1'), C.toggleHeading(1)).md).toBe('# a\n\n# b\n');
+        expect(run('# a\n\n# b', blockSelection('b-0', 'b-1'), C.toggleHeading(1)).md).toBe('a\n\nb\n');
+        expect(run('# a', at('b-0', 1), C.commands.toggleHeading1).md).toBe('a\n');
+    });
+});
+
 describe('commands registry', () => {
     it('exposes every named command as a Command', () => {
         for (const [name, cmd] of Object.entries(C.commands)) {
             expect(typeof cmd, name).toBe('function');
         }
         const state: EditorState = createState(parseMarkdown('x'), at('b-0', 1), schema);
-        expect(C.commands.toggleStrong(state, undefined, ctx)).toBe(false);
+        expect(C.commands.toggleStrong(state, undefined, ctx)).toBe(true);
+        expect(C.commands.indentListItem(state, undefined, ctx)).toBe(false);
         expect(C.commands.setHeading2(state, undefined, ctx)).toBe(true);
     });
 });

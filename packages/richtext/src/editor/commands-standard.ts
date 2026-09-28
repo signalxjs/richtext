@@ -12,7 +12,7 @@ import type { InlineFlat } from './inline-flat.js';
 import { addMark, removeMark, sliceFlat, toInline } from './inline-flat.js';
 import { chain, crossBlock, deleteRange, overRange, remapByEditableOrder, entryOf, firstEditable, inlineFlat, insertAtom, insertBlockAfter, joinTextBackward, keyAt, lengthOf, meta, selectedBlockKeys, setBlockType, splitTextBlock, textSel, toggleMark, type Command, type CommandContext, type Dispatch } from './commands.js';
 import type { BlockEntry, EditorSelection, EditorState, TextSelection } from './state.js';
-import { textSegments } from './range.js';
+import { rangeLeafKeys, textSegments } from './range.js';
 import { blockSelection, isCrossBlock, selectionRange, textSelection } from './state.js';
 import type { Step } from './steps.js';
 
@@ -659,6 +659,20 @@ export const toggleDelete: Command = toggleMark('delete');
 export const toggleInlineCode: Command = toggleMark('inlineCode');
 export const setParagraph: Command = setBlockType('paragraph');
 export const setHeading = (depth: 1 | 2 | 3 | 4 | 5 | 6): Command => setBlockType('heading', { depth });
+
+/**
+ * A heading of `depth`, or back to the default block (a paragraph) when every
+ * covered text block already is one — the toolbar's H1/H2/H3 and Mod-Alt-1…6.
+ */
+export const toggleHeading =
+    (depth: 1 | 2 | 3 | 4 | 5 | 6): Command =>
+    (state, dispatch, ctx) => {
+        const sel = state.selection;
+        const keys = sel?.mode === 'text' && isCrossBlock(sel) ? rangeLeafKeys(state, sel, ctx) : selectedBlockKeys(state);
+        const nodes = keys.map((k) => entryOf(state, k)?.node).filter((n): n is NonNullable<typeof n> => !!n && ctx.schema.role(n.type) === 'textblock');
+        const all = nodes.length > 0 && nodes.every((n) => n.type === 'heading' && (n as { depth?: number }).depth === depth);
+        return (all ? setBlockType(ctx.schema.defaultBlock) : setHeading(depth))(state, dispatch, ctx);
+    };
 export const setCodeBlock: Command = setBlockType('code');
 export const toggleBulletList: Command = toggleList('bullet');
 export const toggleOrderedList: Command = toggleList('ordered');

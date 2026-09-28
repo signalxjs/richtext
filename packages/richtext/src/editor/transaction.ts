@@ -6,7 +6,7 @@
 import type { Root } from '../ast/index.js';
 import type { Schema } from '../schema/index.js';
 import type { BlockIndex, EditorSelection, EditorState, Point } from './state.js';
-import { buildIndex, makeState } from './state.js';
+import { buildIndex, makeState, selectionEquals } from './state.js';
 import type { Step, StepContext } from './steps.js';
 import { applyStep, invertStep } from './steps.js';
 
@@ -35,6 +35,8 @@ export interface Transaction {
     selection?: EditorSelection;
     /** Set `composing` on the resulting state. */
     composing?: boolean;
+    /** Set the stored marks (the marks for the text typed next at a caret); `undefined` keeps them unless the transaction edits or moves the selection. */
+    storedMarks?: readonly string[] | null;
     meta: TransactionMeta;
 }
 
@@ -59,7 +61,8 @@ export function applyTransaction(state: EditorState, tr: Transaction, ctx: StepC
     inverse.reverse();
     const selection = tr.selection !== undefined ? tr.selection : mapSelection(state.selection, tr.steps, doc, ctx.schema);
     const composing = tr.composing ?? (tr.meta.composing ?? state.composing);
-    const next = makeState(doc, selection, state.rev + (tr.steps.length || tr.selection !== undefined ? 1 : 0), composing, ctx.schema);
+    const storedMarks = tr.storedMarks !== undefined ? tr.storedMarks : tr.steps.length || !selectionEquals(state.selection, selection) ? null : state.storedMarks;
+    const next = makeState(doc, selection, state.rev + (tr.steps.length || tr.selection !== undefined ? 1 : 0), composing, ctx.schema, storedMarks);
     return { state: next, inverse };
 }
 

@@ -90,6 +90,16 @@ flavour. Elements carry `data-scope="richtext-editor"` (and
 `richtext-toolbar`, `richtext-block-menu`, `richtext-suggest`) with
 `data-part` — the playground's `editor.css` is the reference stylesheet.
 
+A skin draws the chrome with its own components. `renderToolbarItem` and
+`renderToolbarGroup` draw both toolbars, `renderSuggestion` draws the
+suggestion rows, `renderLinkPopover` draws the link popover's body, and
+`renderBlockMenuItem` draws the block menu's items. The editor keeps focus,
+positioning and the keyboard. A skin's item spreads `info.attrs` onto its
+`<button>`; they carry the roving tab stop and the `pointerdown` cancel that
+keeps the caret. Every default toolbar item names its `icon` and
+`shortcut`, and `formatKeyName('Mod-b', editor.platform)` spells the shortcut
+for display (`['⌘', 'B']` or `['Ctrl', 'B']`).
+
 Selections can span blocks: drag across them, Shift+Arrow past a block's
 edge, or Shift+click another block. Typing, Backspace, Enter, paste, marks,
 links, block types, lists and quotes then act on the whole range, and copy

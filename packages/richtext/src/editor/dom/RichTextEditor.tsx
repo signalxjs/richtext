@@ -46,8 +46,8 @@ import { createTriggerSessionManager, type TriggerItem, type TriggerSelectApi, t
 import { commands as commandRegistry } from '../registry.js';
 import { editorPart, flag } from './anatomy.js';
 import { BlockView } from './BlockView.js';
-import { BlockMenu } from './BlockMenu.js';
-import { LinkPopover } from './LinkPopover.js';
+import { BlockMenu, type BlockMenuRenderItem } from './BlockMenu.js';
+import { LinkPopover, type LinkPopoverRender } from './LinkPopover.js';
 import { FloatingToolbar } from './FloatingToolbar.js';
 import { standardContainerViews, type ContainerView } from './containers.js';
 import { createEditorView, useEditorView, type EditorView } from './context.js';
@@ -58,7 +58,7 @@ import { readPasteData } from './inline-surface.js';
 import { createMultiSelection } from './multi-selection.js';
 import { createBlockDrag } from './block-drag.js';
 import { SuggestionPopup, type SuggestionRenderItem } from './SuggestionPopup.js';
-import { EditorToolbar, type ToolbarRenderItem } from './Toolbar.js';
+import { EditorToolbar, type ToolbarRenderGroup, type ToolbarRenderItem } from './Toolbar.js';
 import { pluginAtomRenderers, pluginContainerViews } from './plugin-dom.js';
 
 export interface RichTextEditorChange {
@@ -110,8 +110,14 @@ export type RichTextEditorProps = Define.WithAttrs<
     /** A toolbar over the text selection: `true` for the default items (bold, italic, strike, code, link), or the items to show. Default off. */
     & Define.Prop<'floatingToolbar', boolean | readonly ToolbarItem[]>
     & Define.Prop<'toolbarItems', readonly ToolbarItem[]>
+    /** The main toolbar's accessible name. Default `'Formatting'`. */
+    & Define.Prop<'toolbarLabel', string>
+    /** Skin hooks: draw toolbar items and groups (both toolbars), suggestion rows, the link popover's body and block menu items. */
     & Define.Prop<'renderToolbarItem', ToolbarRenderItem>
+    & Define.Prop<'renderToolbarGroup', ToolbarRenderGroup>
     & Define.Prop<'renderSuggestion', SuggestionRenderItem>
+    & Define.Prop<'renderLinkPopover', LinkPopoverRender>
+    & Define.Prop<'renderBlockMenuItem', BlockMenuRenderItem>
     /** Block handles (the ⋮⋮ button opening the block menu). Default `true`. */
     & Define.Prop<'blockHandles', boolean>
     & Define.Prop<'readOnly', boolean>
@@ -140,8 +146,12 @@ const OWN_PROPS = [
     'toolbar',
     'floatingToolbar',
     'toolbarItems',
+    'toolbarLabel',
     'renderToolbarItem',
+    'renderToolbarGroup',
     'renderSuggestion',
+    'renderLinkPopover',
+    'renderBlockMenuItem',
     'blockHandles',
     'readOnly',
     'placeholder',
@@ -528,7 +538,7 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
         track(editor.rev.value, editor.selRev.value);
         const state = editor.state;
         const toolbar = props.toolbar ?? true;
-        const bar = toolbar ? <EditorToolbar items={props.toolbarItems} renderItem={props.renderToolbarItem} /> : null;
+        const bar = toolbar ? <EditorToolbar items={props.toolbarItems} renderItem={props.renderToolbarItem} renderGroup={props.renderToolbarGroup} label={props.toolbarLabel} /> : null;
         track(sessionRev.value);
         const s = session;
         const caret = s ? (view.surfaces.get(s.key) as { caretRect?: () => { x: number; y: number; height: number } | null } | undefined)?.caretRect?.() ?? null : null;
@@ -561,10 +571,10 @@ export const RichTextEditor = component<RichTextEditorProps, RichTextEditorContr
                     const drop = blockDrag.indicator();
                     return drop ? <div {...editorPart('drop-indicator')} aria-hidden="true" style={`position:absolute;pointer-events:none;left:${drop.left}px;top:${drop.top - 1}px;width:${drop.width}px`} /> : null;
                 })()}
-                <BlockMenu />
-                <LinkPopover />
+                <BlockMenu renderItem={props.renderBlockMenuItem} />
+                <LinkPopover render={props.renderLinkPopover} />
                 {props.floatingToolbar ? (
-                    <FloatingToolbar items={Array.isArray(props.floatingToolbar) ? props.floatingToolbar : undefined} renderItem={props.renderToolbarItem} suppressed={!!s} />
+                    <FloatingToolbar items={Array.isArray(props.floatingToolbar) ? props.floatingToolbar : undefined} renderItem={props.renderToolbarItem} renderGroup={props.renderToolbarGroup} suppressed={!!s} />
                 ) : null}
                 {s ? (
                     <SuggestionPopup

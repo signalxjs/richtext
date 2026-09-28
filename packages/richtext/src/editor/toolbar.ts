@@ -65,6 +65,8 @@ export interface ToolbarItem {
     icon?: string;
     /** Items with the same group render adjacent (skins may add separators). */
     group?: string;
+    /** The key name that runs the same command (`Mod-b`), for skins to show as a hint (`formatKeyName`). Informational: the keymap binds the key. */
+    shortcut?: string;
     isActive?(tb: ToolbarState): boolean;
     /** Default: enabled whenever there is a selection. */
     isEnabled?(tb: ToolbarState): boolean;
@@ -182,11 +184,12 @@ function currentBlockType(tc: ToolbarContext): string | null {
     return tc.state.index().get(sel.mode === 'text' ? sel.anchor.key : sel.anchorKey)?.node.type ?? null;
 }
 
-const listItem = (id: string, label: string, icon: string, kind: ListKind): ToolbarItem => ({
+const listItem = (id: string, label: string, icon: string, kind: ListKind, shortcut: string): ToolbarItem => ({
     id,
     label,
     icon,
     group: 'block',
+    shortcut,
     isActive: listActive(kind),
     isEnabled: hasSelection,
     // `toggleList` already unwraps when the block is in a list of this kind.
@@ -195,10 +198,10 @@ const listItem = (id: string, label: string, icon: string, kind: ListKind): Tool
 
 /** The neutral default item set, grouped `inline` | `block` | `insert` | `history`. */
 export const defaultToolbarItems: ToolbarItem[] = [
-    { id: 'bold', label: 'B', icon: 'bold', group: 'inline', isActive: markActive('strong'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleStrong) },
-    { id: 'italic', label: 'I', icon: 'italic', group: 'inline', isActive: markActive('emphasis'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleEmphasis) },
-    { id: 'strike', label: 'S', icon: 'strikethrough', group: 'inline', isActive: markActive('delete'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleDelete) },
-    { id: 'code', label: '</>', icon: 'code', group: 'inline', isActive: markActive('inlineCode'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleInlineCode) },
+    { id: 'bold', label: 'B', icon: 'bold', group: 'inline', shortcut: 'Mod-b', isActive: markActive('strong'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleStrong) },
+    { id: 'italic', label: 'I', icon: 'italic', group: 'inline', shortcut: 'Mod-i', isActive: markActive('emphasis'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleEmphasis) },
+    { id: 'strike', label: 'S', icon: 'strikethrough', group: 'inline', shortcut: 'Mod-Shift-x', isActive: markActive('delete'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleDelete) },
+    { id: 'code', label: '</>', icon: 'code', group: 'inline', shortcut: 'Mod-e', isActive: markActive('inlineCode'), isEnabled: inText, run: (tc) => void tc.run(commands.toggleInlineCode) },
     {
         // With a host link editor (the DOM popover) the item opens it. Without
         // one it links the selection to (or inserts) a placeholder URL, and
@@ -207,22 +210,24 @@ export const defaultToolbarItems: ToolbarItem[] = [
         label: 'Link',
         icon: 'link',
         group: 'inline',
+        shortcut: 'Mod-k',
         isActive: markActive('link'),
         isEnabled: inText,
         run: (tc) => (tc.ui?.openLinkEditor ? tc.ui.openLinkEditor() : void tc.run(activeMarksOf(tc.state, tc.ctx).includes('link') ? commands.unsetLink : setLink('https://'))),
     },
-    { id: 'h1', label: 'H1', icon: 'heading-1', group: 'block', isActive: headingActive(1), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading1) },
-    { id: 'h2', label: 'H2', icon: 'heading-2', group: 'block', isActive: headingActive(2), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading2) },
-    { id: 'h3', label: 'H3', icon: 'heading-3', group: 'block', isActive: headingActive(3), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading3) },
-    { id: 'paragraph', label: '¶', icon: 'pilcrow', group: 'block', isActive: (tb) => tb.blockType === 'paragraph', isEnabled: hasSelection, run: (tc) => void tc.run(commands.setParagraph) },
-    listItem('bullet', '•', 'list', 'bullet'),
-    listItem('ordered', '1.', 'list-ordered', 'ordered'),
-    listItem('task', '☑', 'list-checks', 'task'),
+    { id: 'h1', label: 'H1', icon: 'heading-1', group: 'block', shortcut: 'Mod-Alt-1', isActive: headingActive(1), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading1) },
+    { id: 'h2', label: 'H2', icon: 'heading-2', group: 'block', shortcut: 'Mod-Alt-2', isActive: headingActive(2), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading2) },
+    { id: 'h3', label: 'H3', icon: 'heading-3', group: 'block', shortcut: 'Mod-Alt-3', isActive: headingActive(3), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading3) },
+    { id: 'paragraph', label: '¶', icon: 'pilcrow', group: 'block', shortcut: 'Mod-Alt-0', isActive: (tb) => tb.blockType === 'paragraph', isEnabled: hasSelection, run: (tc) => void tc.run(commands.setParagraph) },
+    listItem('bullet', '•', 'list', 'bullet', 'Mod-Shift-8'),
+    listItem('ordered', '1.', 'list-ordered', 'ordered', 'Mod-Shift-7'),
+    listItem('task', '☑', 'list-checks', 'task', 'Mod-Shift-9'),
     {
         id: 'quote',
         label: '❝',
         icon: 'quote',
         group: 'block',
+        shortcut: 'Mod-Shift-.',
         isActive: (tb) => tb.inBlockquote,
         isEnabled: hasSelection,
         run: (tc) => void (tc.run(commands.liftOutOfBlockquote) || tc.run(commands.wrapInBlockquote)),
@@ -238,6 +243,6 @@ export const defaultToolbarItems: ToolbarItem[] = [
     },
     { id: 'hr', label: '—', icon: 'minus', group: 'insert', isEnabled: hasSelection, run: (tc) => void tc.run(commands.insertThematicBreak) },
     { id: 'table', label: '⊞', icon: 'table', group: 'insert', isEnabled: hasSelection, run: (tc) => void tc.run(insertTable()) },
-    { id: 'undo', label: '↶', icon: 'undo', group: 'history', isEnabled: (tb) => tb.canUndo, run: (tc) => void tc.run('undo') },
-    { id: 'redo', label: '↷', icon: 'redo', group: 'history', isEnabled: (tb) => tb.canRedo, run: (tc) => void tc.run('redo') },
+    { id: 'undo', label: '↶', icon: 'undo', group: 'history', shortcut: 'Mod-z', isEnabled: (tb) => tb.canUndo, run: (tc) => void tc.run('undo') },
+    { id: 'redo', label: '↷', icon: 'redo', group: 'history', shortcut: 'Mod-Shift-z', isEnabled: (tb) => tb.canRedo, run: (tc) => void tc.run('redo') },
 ];

@@ -3,21 +3,60 @@
  * Buttons carry `data-state="on|off"` from `isActive` and `disabled` from
  * `isEnabled`; `pointerdown` is cancelled so the caret stays in the surface
  * while a button runs its command. Items with the same `group` sit in one
- * `data-part="group"`. Pass `renderItem` to draw items your way (icons).
+ * `data-part="group"`.
+ *
+ * Skins draw items with `renderItem` and groups with `renderGroup`. The
+ * toolbar keeps the roving tab stop: a skin's item spreads `info.attrs`
+ * onto its `<button>` (they carry `data-item`, `tabIndex`, `disabled` and
+ * the `pointerdown` cancel) and calls `info.run` when pressed.
  */
 
 import { component, type Define, type JSXElement } from '@sigx/runtime-core';
 import type {} from '@sigx/runtime-dom';
 import { defaultToolbarItems, toolbarState, type ToolbarContext, type ToolbarItem, type ToolbarState } from '../toolbar.js';
-import { toolbarPart } from './anatomy.js';
+import { toolbarPart, type ScopedPartAttrs } from './anatomy.js';
 import { useEditorView } from './context.js';
 import { track } from './context.js';
 
-export type ToolbarRenderItem = (item: ToolbarItem, tb: ToolbarState, run: () => void) => JSXElement;
+/** What the toolbar hands a skin for one item. */
+export interface ToolbarItemInfo {
+    tb: ToolbarState;
+    /** `isEnabled` under the editor's read-only state; `run` does nothing when `false`. */
+    enabled: boolean;
+    /** `isActive`, `false` for items without one. */
+    active: boolean;
+    /** Run the item's command (a no-op while disabled). */
+    run: () => void;
+    /** Spread onto the item's `<button>`: the roving tab stop and the caret-keeping `pointerdown` depend on them. */
+    attrs: ToolbarItemAttrs;
+}
+
+export type ToolbarItemAttrs = ScopedPartAttrs & {
+    key: string;
+    'data-item': string;
+    'data-state': 'on' | 'off';
+    'data-icon': string | undefined;
+    tabIndex: number;
+    disabled: boolean;
+    onPointerDown: (e: PointerEvent) => void;
+};
+
+/** A group of adjacent items with the same `group`; `index` counts from 0 in toolbar order. */
+export interface ToolbarGroupInfo {
+    name: string | undefined;
+    index: number;
+    count: number;
+    /** Spread onto the group's element. */
+    attrs: ScopedPartAttrs & { key: string; 'data-group': string | undefined };
+}
+
+export type ToolbarRenderItem = (item: ToolbarItem, info: ToolbarItemInfo) => JSXElement;
+export type ToolbarRenderGroup = (group: ToolbarGroupInfo, children: JSXElement[]) => JSXElement;
 
 export type EditorToolbarProps = Define.WithAttrs<
     & Define.Prop<'items', readonly ToolbarItem[]>
     & Define.Prop<'renderItem', ToolbarRenderItem>
+    & Define.Prop<'renderGroup', ToolbarRenderGroup>
     & Define.Prop<'label', string>
 >;
 
@@ -42,7 +81,7 @@ export const EditorToolbar = component<EditorToolbarProps>(({ props, signal }) =
     const onKeydown = (e: KeyboardEvent): void => {
         // Roving focus across the toolbar with the arrow keys.
         const bar = e.currentTarget as HTMLElement;
-        const buttons = Array.from(bar.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+        const buttons = Array.from(bar.querySelectorAll<HTMLButtonElement>('button[data-item]:not([disabled])'));
         const i = buttons.indexOf(bar.ownerDocument.activeElement as HTMLButtonElement);
         if (i < 0 || !buttons.length) return;
         let next: HTMLButtonElement;
@@ -56,7 +95,7 @@ export const EditorToolbar = component<EditorToolbarProps>(({ props, signal }) =
     };
 
     const onFocusIn = (e: FocusEvent): void => {
-        const id = (e.target as HTMLElement).getAttribute('data-item');
+        const id = (e.target as HTMLElement).closest?.('[data-item]')?.getAttribute('data-item');
         if (id) roving.value = id;
     };
 
@@ -82,21 +121,24 @@ export const EditorToolbar = component<EditorToolbarProps>(({ props, signal }) =
                 if (!enabled) return;
                 item.run(context());
             };
-            if (props.renderItem) return props.renderItem(item, tb, run);
+            const attrs: ToolbarItemAttrs = {
+                key: item.id,
+                ...toolbarPart('item'),
+                'data-item': item.id,
+                'data-state': active ? 'on' : 'off',
+                'data-icon': item.icon,
+                tabIndex: item.id === tabStop ? 0 : -1,
+                disabled: !enabled,
+                onPointerDown,
+            };
+            if (props.renderItem) return props.renderItem(item, { tb, enabled, active, run, attrs });
             return (
                 <button
-                    key={item.id}
-                    {...toolbarPart('item')}
+                    {...attrs}
                     type="button"
-                    data-item={item.id}
-                    data-state={active ? 'on' : 'off'}
-                    data-icon={item.icon}
                     aria-pressed={item.isActive ? (active ? 'true' : 'false') : undefined}
                     aria-label={item.label ?? item.id}
                     title={item.label ?? item.id}
-                    disabled={!enabled}
-                    tabIndex={item.id === tabStop ? 0 : -1}
-                    onPointerDown={onPointerDown}
                     onClick={run}
                 >
                     {item.label ?? item.id}
@@ -105,11 +147,12 @@ export const EditorToolbar = component<EditorToolbarProps>(({ props, signal }) =
         };
         return (
             <div {...toolbarPart('root')} role="toolbar" aria-label={props.label ?? 'Formatting'} aria-orientation="horizontal" onKeyDown={onKeydown} onFocusIn={onFocusIn}>
-                {groups.map((g, i) => (
-                    <div key={g.name ?? String(i)} {...toolbarPart('group')} data-group={g.name}>
-                        {g.items.map(renderItem)}
-                    </div>
-                ))}
+                {groups.map((g, i) => {
+                    const attrs = { key: g.name ?? String(i), ...toolbarPart('group'), 'data-group': g.name };
+                    const children = g.items.map(renderItem);
+                    if (props.renderGroup) return props.renderGroup({ name: g.name, index: i, count: groups.length, attrs }, children);
+                    return <div {...attrs}>{children}</div>;
+                })}
             </div>
         );
     };

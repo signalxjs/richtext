@@ -17,12 +17,12 @@ import { editorPart } from './anatomy.js';
 import { useEditorView } from './context.js';
 import { track } from './context.js';
 import { selectionBox } from './popup.js';
-import { EditorToolbar, type ToolbarRenderItem } from './Toolbar.js';
+import { EditorToolbar, type ToolbarRenderGroup, type ToolbarRenderItem } from './Toolbar.js';
 
 /** The default floating items: inline formatting and the link. */
 export const FLOATING_TOOLBAR_ITEMS: readonly string[] = ['bold', 'italic', 'strike', 'code', 'link'];
 
-export type FloatingToolbarProps = Define.Prop<'items', readonly ToolbarItem[]> & Define.Prop<'renderItem', ToolbarRenderItem> & Define.Prop<'suppressed', boolean>;
+export type FloatingToolbarProps = Define.Prop<'items', readonly ToolbarItem[]> & Define.Prop<'renderItem', ToolbarRenderItem> & Define.Prop<'renderGroup', ToolbarRenderGroup> & Define.Prop<'suppressed', boolean>;
 
 export const FloatingToolbar = component<FloatingToolbarProps>(({ props }) => {
     const view = useEditorView();
@@ -47,7 +47,7 @@ export const FloatingToolbar = component<FloatingToolbarProps>(({ props }) => {
         const box = selectionBox(root, () => surface?.caretRect?.() ?? null) ?? { left: 0, top: 0, bottom: 0 };
         return (
             <div {...editorPart('bubble')} style={`position:absolute;left:${Math.max(0, box.left)}px;top:${box.top - 6}px;transform:translateY(-100%)`}>
-                <EditorToolbar items={props.items ?? defaults} renderItem={props.renderItem} label="Selection formatting" />
+                <EditorToolbar items={props.items ?? defaults} renderItem={props.renderItem} renderGroup={props.renderGroup} label="Selection formatting" />
             </div>
         );
     };

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Package anatomy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1060px; box-sizing: border-box; padding: 64px; display: flex; flex-direction: column; gap: 36px; background: #ecebe8; color: #1c1917; font-family: 'Geist', system-ui, sans-serif">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'Geist Mono', monospace; font-size: 13px; color: #57534e">packages/richtext-zero (proposed)</div>
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 650; letter-spacing: -0.03em">@sigx/richtext-zero</h1>
+</div>
+<p style="margin: 0; max-width: 560px; font-size: 15px; line-height: 1.55; color: #44403c">Every editor part maps to a zero component through the hooks <code style="font-family: 'Geist Mono', monospace; font-size: 13px">RichTextEditor</code> already exposes: <code style="font-family: 'Geist Mono', monospace; font-size: 13px">renderToolbarItem</code>, <code style="font-family: 'Geist Mono', monospace; font-size: 13px">renderSuggestion</code>, <code style="font-family: 'Geist Mono', monospace; font-size: 13px">floatingToolbar</code>. The editor core stays zero-free.</p>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+
+<section aria-labelledby="map-h" style="display: flex; flex-direction: column; background: #fbfbfa; border: 1px solid #dcdad6; border-radius: 16px; overflow: hidden">
+<div style="padding: 20px 24px 14px; display: flex; align-items: baseline; justify-content: space-between">
+<h2 id="map-h" style="margin: 0; font-size: 18px; font-weight: 650">Part map</h2>
+<span style="font-size: 12px; color: #57534e">editor scope · part → zero</span>
+</div>
+<table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.35">
+<thead><tr style="text-align: left; color: #57534e">
+<th scope="col" style="padding: 8px 24px; font-weight: 500; border-top: 1px solid #e7e5e4; border-bottom: 1px solid #e7e5e4">Editor part</th>
+<th scope="col" style="padding: 8px 12px; font-weight: 500; border-top: 1px solid #e7e5e4; border-bottom: 1px solid #e7e5e4">Zero</th>
+<th scope="col" style="padding: 8px 24px 8px 12px; font-weight: 500; border-top: 1px solid #e7e5e4; border-bottom: 1px solid #e7e5e4">Notes</th>
+</tr></thead>
+<tbody>
+<sc-for list="{{parts}}" as="p" hint-placeholder-count="12">
+<tr>
+<td style="padding: 9px 24px; border-bottom: 1px solid #efedea; font-family: 'Geist Mono', monospace; font-size: 12px; color: #292524">{{p.part}}</td>
+<td style="padding: 9px 12px; border-bottom: 1px solid #efedea"><span style="padding: 2px 8px; border-radius: 999px; background: {{p.bg}}; color: {{p.fg}}; font-weight: 600; font-size: 12px; white-space: nowrap">{{p.zero}}</span></td>
+<td style="padding: 9px 24px 9px 12px; border-bottom: 1px solid #efedea; color: #57534e">{{p.note}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="margin-top: auto; padding: 14px 24px; display: flex; gap: 16px; font-size: 12px; color: #57534e; border-top: 1px solid #e7e5e4">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 99px; background: #dbe6fb"></span>exists in zero today</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 99px; background: #fde7c7"></span>gap: needs a zero part</span>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 24px; min-height: 0">
+<section aria-labelledby="api-h" style="flex-shrink: 0; display: flex; flex-direction: column; background: #1c1917; color: #e7e5e4; border-radius: 16px; overflow: hidden">
+<div style="padding: 18px 22px 10px; display: flex; align-items: baseline; justify-content: space-between">
+<h2 id="api-h" style="margin: 0; font-size: 18px; font-weight: 650; color: #fafaf9">API sketch</h2>
+<span style="font-size: 12px; color: #a8a29e">not final</span>
+</div>
+<pre style="margin: 0; padding: 4px 22px 20px; font-family: 'Geist Mono', monospace; font-size: 12.5px; line-height: 1.7; white-space: pre"><span style="display: block; min-height: 1.7em"><span style="color: #c4b5fd">import</span> { ZeroRichTextEditor } <span style="color: #c4b5fd">from</span> <span style="color: #86efac">'@sigx/richtext-zero'</span></span><span style="display: block; min-height: 1.7em"><span style="color: #c4b5fd">import</span> { markdownFormat } <span style="color: #c4b5fd">from</span> <span style="color: #86efac">'@sigx/richtext-markdown'</span></span><span style="display: block; min-height: 1.7em"><span style="color: #c4b5fd">import</span> { htmlFormat } <span style="color: #c4b5fd">from</span> <span style="color: #86efac">'@sigx/richtext-html'</span></span><span style="display: block; min-height: 1.7em"><span style="color: #a8a29e">// the skin is just a stylesheet: any zero design system</span></span><span style="display: block; min-height: 1.7em"></span><span style="display: block; min-height: 1.7em">&lt;<span style="color: #93c5fd">ZeroRichTextEditor</span></span><span style="display: block; min-height: 1.7em">  format={markdownFormat}</span><span style="display: block; min-height: 1.7em">  formats={[markdownFormat, htmlFormat]}</span><span style="display: block; min-height: 1.7em">  views={[<span style="color: #86efac">'rich'</span>, <span style="color: #86efac">'split'</span>, <span style="color: #86efac">'source'</span>]}</span><span style="display: block; min-height: 1.7em">  toolbar=<span style="color: #86efac">"top"</span>  floatingToolbar  blockHandles</span><span style="display: block; min-height: 1.7em">/&gt;</span></pre>
+</section>
+
+<section aria-labelledby="deps-h" style="flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px 22px; background: #fbfbfa; border: 1px solid #dcdad6; border-radius: 16px">
+<h2 id="deps-h" style="margin: 0; font-size: 18px; font-weight: 650">Where it sits</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; font-size: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid #dcdad6; border-radius: 10px; background: #ffffff">
+<div style="font-family: 'Geist Mono', monospace; font-weight: 500">@sigx/richtext</div>
+<div style="color: #57534e">./editor/dom: state, commands, surfaces, anatomy</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 2px solid #1d4ed8; border-radius: 10px; background: #eef3fd">
+<div style="font-family: 'Geist Mono', monospace; font-weight: 600; color: #1e3a8a">@sigx/richtext-zero</div>
+<div style="color: #1e3a8a">renderers, icon set, view switch, source pane</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid #dcdad6; border-radius: 10px; background: #ffffff">
+<div style="font-family: 'Geist Mono', monospace; font-weight: 500">@sigx/zero</div>
+<div style="color: #57534e">Toggle, Select, Popover, Menu, Tooltip…</div>
+</div>
+</div>
+<div style="font-size: 12px; color: #57534e; line-height: 1.5">Peers on both. Formats plug in as presets (<code style="font-family: 'Geist Mono', monospace">markdownPreset</code>, <code style="font-family: 'Geist Mono', monospace">htmlPreset</code>); skins come from <code style="font-family: 'Geist Mono', monospace">@sigx/zero-*</code>.</div>
+</section>
+
+<section aria-labelledby="icons-h" style="flex-grow: 1; display: flex; flex-direction: column; gap: 12px; padding: 16px 22px 18px; background: #fbfbfa; border: 1px solid #dcdad6; border-radius: 16px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h2 id="icons-h" style="margin: 0; font-size: 18px; font-weight: 650">Icon set</h2>
+<span style="font-size: 12px; color: #57534e">names follow <code style="font-family: 'Geist Mono', monospace">ToolbarItem.icon</code> · 24px grid, currentColor stroke</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{icons}}" as="i" hint-placeholder-count="18">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 52px; padding: 8px 6px 6px; border-radius: 8px; background: #ffffff; border: 1px solid #ebe9e5">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.d}}"></path></svg>
+<span style="font-family: 'Geist Mono', monospace; font-size: 9px; letter-spacing: -0.02em; color: #57534e; text-align: center; white-space: nowrap">{{i.name}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1060}}'>
+var HAVE = { bg: '#dbe6fb', fg: '#1e3a8a' };
+var GAP = { bg: '#fde7c7', fg: '#7c2d12' };
+var PARTS = [
+  ['richtext-toolbar · root', 'Toolbar', 'one roving tab stop across items (zero#464)', GAP],
+  ['richtext-toolbar · item', 'Toggle', 'isActive → aria-pressed / data-state', HAVE],
+  ['block type', 'Select', 'paragraph, H1–H3, quote, code', HAVE],
+  ['view · format switch', 'ToggleGroup', 'rich / split / source; md / html', HAVE],
+  ['richtext-editor · bubble', 'Popover', 'anchored to the text selection', HAVE],
+  ['richtext-block-menu', 'Menu', 'slash menu and “Turn into”', HAVE],
+  ['richtext-suggest', 'Combobox', '@mentions and other triggers', HAVE],
+  ['richtext-link', 'Popover + Input', 'URLs pass the core sanitizeUrl', HAVE],
+  ['shortcut hints', 'Tooltip + Kbd', 'label and keys read from the keymap', HAVE],
+  ['code-lang', 'Select', 'languages from the shiki plugin', HAVE],
+  ['task-check', 'Checkbox', 'GFM task list items', HAVE],
+  ['overflow “More”', 'Menu', 'items that no longer fit the bar', HAVE],
+  ['icons', 'Icon', 'zero ships none yet (zero#462)', GAP]
+];
+var ICONS = [
+  ['undo', 'M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11'],
+  ['redo', 'm15 14 5-5-5-5 M20 9H9.5a5.5 5.5 0 0 0 0 11H13'],
+  ['bold', 'M6 12h8a4 4 0 0 1 0 8H6z M6 4h7a4 4 0 0 1 0 8H6z'],
+  ['italic', 'M19 4h-9 M14 20H5 M15 4 9 20'],
+  ['strikethrough', 'M16 4H9a3 3 0 0 0-2.83 4 M14 12a4 4 0 0 1 0 8H6 M4 12h16'],
+  ['code', 'm16 18 6-6-6-6 M8 6l-6 6 6 6'],
+  ['link', 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
+  ['pilcrow', 'M13 4v16 M17 4v16 M19 4H9.5a4.5 4.5 0 0 0 0 9H13'],
+  ['heading-2', 'M4 12h8 M4 18V6 M12 18V6 M16.5 10.5c.8-.9 1.8-1.5 3-1.5 1.4 0 2.5 1 2.5 2.4 0 2.6-5.5 3.3-5.5 6.6h5.5'],
+  ['list', 'M9 6h12 M9 12h12 M9 18h12 M4 6h.01 M4 12h.01 M4 18h.01'],
+  ['list-ordered', 'M10 6h11 M10 12h11 M10 18h11 M4 4h1v5 M4 9h2 M6 20H4c0-1 2-2 2-3s-1-1.5-2-1'],
+  ['list-checks', 'M3 7l2 2 4-4 M3 17l2 2 4-4 M13 6h8 M13 12h8 M13 18h8'],
+  ['quote', 'M17 6H3 M21 12H8 M21 18H8 M3 12v6'],
+  ['code-block', 'M10 9.5 8 12l2 2.5 M14 9.5l2 2.5-2 2.5 M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'],
+  ['table', 'M12 3v18 M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M3 9h18 M3 15h18'],
+  ['image', 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M21 15l-3.09-3.09a2 2 0 0 0-2.82 0L6 21 M9 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'],
+  ['minus', 'M3 12h18 M8 7l4-4 4 4 M16 17l-4 4-4-4'],
+  ['mention', 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8']
+];
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      parts: PARTS.map(function (p) { return { part: p[0], zero: p[1], note: p[2], bg: p[3].bg, fg: p[3].fg }; }),
+      icons: ICONS.map(function (i) { return { name: i[0], d: i[1] }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

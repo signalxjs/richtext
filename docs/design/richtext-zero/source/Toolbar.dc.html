@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Editor toolbar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=Roboto+Flex:wght@400;500;600&amp;family=Roboto+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;700&amp;family=Space+Mono:wght@400;700&amp;family=Fira+Code:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.rt-btn{cursor:pointer;transition:background-color .12s ease,color .12s ease}
+.rt-btn[data-on="n"]:hover{background:var(--rt-hover) !important;color:var(--rt-text) !important}
+.rt-btn:focus-visible{outline:2px solid var(--rt-accent);outline-offset:1px}
+</style>
+</helmet>
+<div role="toolbar" aria-label="Formatting" data-scope="richtext-toolbar" data-part="root" style="width: {{width}}px; height: 52px; box-sizing: border-box; display: flex; align-items: center; gap: 2px; padding: 0 {{t.tbPad}}px; background: {{t.tbBg}}; border: {{t.tbBorder}}; border-radius: {{t.tbR}}px; box-shadow: {{t.tbShadow}}; font-family: {{t.font}}; color: {{t.text}}; --rt-hover: {{t.hover}}; --rt-accent: {{t.accent}}; --rt-text: {{t.text}}">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+<sc-if value="{{g.sep}}" hint-placeholder-val="{{true}}">
+<div aria-hidden="true" style="width: {{t.sepW}}px; height: 22px; margin: 0 6px; background: {{t.sep}}; flex-shrink: 0"></div>
+</sc-if>
+<sc-if value="{{g.spacer}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1"></div>
+</sc-if>
+<div data-part="group" role="group" aria-label="{{g.label}}" style="display: flex; align-items: center; gap: 2px">
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+<sc-if value="{{it.isSelect}}" hint-placeholder-val="{{false}}">
+<button type="button" class="rt-btn" data-on="n" aria-haspopup="listbox" aria-label="Block type: Heading 2" style="height: 34px; width: 144px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: {{t.fieldBorder}}; border-radius: {{t.btnR}}px; background: {{t.fieldBg}}; color: {{t.text}}; font-family: inherit; font-size: 13px; font-weight: 500">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="{{t.sw}}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h8 M4 18V6 M12 18V6 M16.5 10.5c.8-.9 1.8-1.5 3-1.5 1.4 0 2.5 1 2.5 2.4 0 2.6-5.5 3.3-5.5 6.6h5.5"></path></svg>
+<span style="flex-grow: 1; text-align: left; text-transform: {{t.labelCase}}">Heading 2</span>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="{{t.sw}}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: {{t.muted}}"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+</sc-if>
+<sc-if value="{{it.isBtn}}" hint-placeholder-val="{{true}}">
+<button type="button" class="rt-btn" data-part="item" data-on="{{it.on}}" aria-pressed="{{it.pressed}}" aria-label="{{it.tip}}" title="{{it.tip}}" onClick="{{it.click}}" style="width: {{t.btn}}px; height: {{t.btn}}px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0; border: {{it.bd}}; border-radius: {{t.btnR}}px; background: {{it.bg}}; color: {{it.fg}}; opacity: {{it.op}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="{{t.sw}}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.d}}"></path></svg>
+</button>
+</sc-if>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"skin":{"editor":"enum","options":["basic","material","brutalist","carbon","daisyui","heroui"],"default":"basic"},"width":{"editor":"int","min":760,"max":1400,"default":1040},"$preview":{"width":1040,"height":52}}'>
+var SKINS = {
+  basic: { font: "'Geist', system-ui, sans-serif", text: '#1c1917', muted: '#57534e', accent: '#1d4ed8', soft: '#e6edfc', softText: '#1e3a8a', hover: '#f0efed', border: '#e7e5e4', surface: '#ffffff', tbBg: '#ffffff', tbBorder: '1px solid #e7e5e4', tbR: 10, tbPad: 8, tbShadow: '0 1px 2px rgba(28,25,23,.06)', btn: 34, btnR: 7, bw: 1, sw: 1.75, sep: '#e7e5e4', sepW: 1, actBd: '1px solid transparent', fieldBg: '#fafaf9', fieldBorder: '1px solid #e7e5e4', labelCase: 'none' },
+  material: { font: "'Roboto Flex', 'Roboto', sans-serif", text: '#1d1b20', muted: '#49454f', accent: '#6750a4', soft: '#e8def8', softText: '#1d192b', hover: '#e7e0ec', border: '#cac4d0', surface: '#fef7ff', tbBg: '#f3edf7', tbBorder: 'none', tbR: 28, tbPad: 10, tbShadow: '0 2px 6px 2px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.22)', btn: 36, btnR: 20, bw: 1, sw: 2, sep: '#cac4d0', sepW: 1, actBd: '1px solid transparent', fieldBg: '#e8def8', fieldBorder: '1px solid transparent', labelCase: 'none' },
+  brutalist: { font: "'Space Grotesk', sans-serif", text: '#111111', muted: '#111111', accent: '#111111', soft: '#ffe14d', softText: '#111111', hover: '#efeadb', border: '#111111', surface: '#fffdf5', tbBg: '#fffdf5', tbBorder: '2px solid #111111', tbR: 0, tbPad: 8, tbShadow: '4px 4px 0 #111111', btn: 34, btnR: 0, bw: 2, sw: 2.25, sep: '#111111', sepW: 2, actBd: '2px solid #111111', fieldBg: '#fffdf5', fieldBorder: '2px solid #111111', labelCase: 'uppercase' },
+  carbon: { font: "'IBM Plex Sans', sans-serif", text: '#161616', muted: '#525252', accent: '#0f62fe', soft: '#d0e2ff', softText: '#002d9c', hover: '#e8e8e8', border: '#e0e0e0', surface: '#ffffff', tbBg: '#f4f4f4', tbBorder: '1px solid #e0e0e0', tbR: 0, tbPad: 0, tbShadow: 'none', btn: 40, btnR: 0, bw: 1, sw: 1.5, sep: '#c6c6c6', sepW: 1, actBd: '1px solid transparent', fieldBg: '#ffffff', fieldBorder: '1px solid transparent', labelCase: 'none' },
+  daisyui: { font: "'Nunito', sans-serif", text: '#18181b', muted: '#52525b', accent: '#605dff', soft: '#605dff', softText: '#ffffff', hover: '#ececec', border: '#e5e5e5', surface: '#ffffff', tbBg: '#f8f8f8', tbBorder: '1px solid #eeeeee', tbR: 16, tbPad: 8, tbShadow: 'none', btn: 34, btnR: 10, bw: 1, sw: 2, sep: '#e0e0e0', sepW: 1, actBd: '1px solid transparent', fieldBg: '#ffffff', fieldBorder: '1px solid #e5e5e5', labelCase: 'none' },
+  heroui: { font: "'Manrope', sans-serif", text: '#11181c', muted: '#52525b', accent: '#006fee', soft: '#e6f1fe', softText: '#004493', hover: '#f4f4f5', border: '#e4e4e7', surface: '#ffffff', tbBg: '#ffffff', tbBorder: 'none', tbR: 14, tbPad: 8, tbShadow: '0 0 1px rgba(0,0,0,.28), 0 4px 14px rgba(0,0,0,.07)', btn: 34, btnR: 10, bw: 1, sw: 1.75, sep: '#e4e4e7', sepW: 1, actBd: '1px solid transparent', fieldBg: '#f4f4f5', fieldBorder: '1px solid transparent', labelCase: 'none' }
+};
+var ICONS = {
+  undo: 'M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
+  redo: 'm15 14 5-5-5-5 M20 9H9.5a5.5 5.5 0 0 0 0 11H13',
+  bold: 'M6 12h8a4 4 0 0 1 0 8H6z M6 4h7a4 4 0 0 1 0 8H6z',
+  italic: 'M19 4h-9 M14 20H5 M15 4 9 20',
+  strike: 'M16 4H9a3 3 0 0 0-2.83 4 M14 12a4 4 0 0 1 0 8H6 M4 12h16',
+  code: 'm16 18 6-6-6-6 M8 6l-6 6 6 6',
+  link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+  bullet: 'M9 6h12 M9 12h12 M9 18h12 M4 6h.01 M4 12h.01 M4 18h.01',
+  ordered: 'M10 6h11 M10 12h11 M10 18h11 M4 4h1v5 M4 9h2 M6 20H4c0-1 2-2 2-3s-1-1.5-2-1',
+  tasks: 'M3 7l2 2 4-4 M3 17l2 2 4-4 M13 6h8 M13 12h8 M13 18h8',
+  quote: 'M17 6H3 M21 12H8 M21 18H8 M3 12v6',
+  codeblock: 'M10 9.5 8 12l2 2.5 M14 9.5l2 2.5-2 2.5 M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
+  table: 'M12 3v18 M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M3 9h18 M3 15h18',
+  image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M21 15l-3.09-3.09a2 2 0 0 0-2.82 0L6 21 M9 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
+  divider: 'M3 12h18 M8 7l4-4 4 4 M16 17l-4 4-4-4',
+  mention: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8',
+  more: 'M5 12h.01 M12 12h.01 M19 12h.01'
+};
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { on: { bold: true } };
+  }
+  toggle(id, kind) {
+    var on = Object.assign({}, this.state.on);
+    if (kind === 'list') { var was = on[id]; on.bullet = false; on.ordered = false; on.tasks = false; on[id] = !was; }
+    else on[id] = !on[id];
+    this.setState({ on: on });
+  }
+  renderVals() {
+    var self = this;
+    var t = SKINS[this.props.skin] || SKINS.basic;
+    var on = this.state.on;
+    var mk = function (id, tip, kind) {
+      var toggle = kind === 'mark' || kind === 'list';
+      var active = toggle && !!on[id];
+      return {
+        isBtn: true, isSelect: false, d: ICONS[id], tip: tip,
+        on: active ? 'y' : 'n',
+        pressed: toggle ? String(active) : undefined,
+        bg: active ? t.soft : 'transparent',
+        fg: active ? t.softText : t.muted,
+        bd: active ? t.actBd : t.bw + 'px solid transparent',
+        op: id === 'redo' ? 0.4 : 1,
+        click: toggle ? function () { self.toggle(id, kind); } : function () {}
+      };
+    };
+    var groups = [
+      { label: 'History', items: [mk('undo', 'Undo  ⌘Z'), mk('redo', 'Redo  ⇧⌘Z')] },
+      { label: 'Block type', items: [{ isSelect: true, isBtn: false }] },
+      { label: 'Inline', items: [mk('bold', 'Bold  ⌘B', 'mark'), mk('italic', 'Italic  ⌘I', 'mark'), mk('strike', 'Strikethrough  ⇧⌘X', 'mark'), mk('code', 'Inline code  ⌘E', 'mark'), mk('link', 'Link  ⌘K', 'mark')] },
+      { label: 'Lists', items: [mk('bullet', 'Bulleted list', 'list'), mk('ordered', 'Numbered list', 'list'), mk('tasks', 'Task list', 'list')] },
+      { label: 'Blocks', items: [mk('quote', 'Quote'), mk('codeblock', 'Code block'), mk('table', 'Table'), mk('image', 'Image'), mk('divider', 'Divider'), mk('mention', 'Mention  @')] },
+      { label: 'More', spacer: true, items: [mk('more', 'More')] }
+    ];
+    groups.forEach(function (g, i) { g.sep = i > 0 && !g.spacer; g.spacer = !!g.spacer; });
+    return { t: t, groups: groups, width: this.props.width ?? 1040 };
+  }
+}
+</script>
+</body>
+</html>

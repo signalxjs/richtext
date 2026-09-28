@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Editor skins</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=Roboto+Flex:wght@400;500;600&amp;family=Roboto+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;700&amp;family=Space+Mono:wght@400;700&amp;family=Fira+Code:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1600px; box-sizing: border-box; padding: 64px; display: flex; flex-direction: column; gap: 40px; background: #ecebe8; color: #1c1917; font-family: 'Geist', system-ui, sans-serif">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'Geist Mono', monospace; font-size: 13px; color: #57534e">@sigx/richtext-zero · skins</div>
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 650; letter-spacing: -0.03em">Same editor, six skins</h1>
+</div>
+<p style="margin: 0; max-width: 520px; font-size: 15px; line-height: 1.55; color: #44403c">The editor only renders <code style="font-family: 'Geist Mono', monospace; font-size: 13px">data-scope</code>, <code style="font-family: 'Geist Mono', monospace; font-size: 13px">data-part</code> and <code style="font-family: 'Geist Mono', monospace; font-size: 13px">data-state</code>. Each zero design system owns the paint, so swapping a skin is swapping one stylesheet. Nothing in the editor changes.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<sc-for list="{{skins}}" as="s" hint-placeholder-count="6">
+<section aria-label="{{s.name}} skin" style="height: 200px; display: flex; background: #fbfbfa; border: 1px solid #dcdad6; border-radius: 16px; overflow: hidden">
+<div style="width: 272px; flex-shrink: 0; box-sizing: border-box; padding: 24px 24px 22px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid #dcdad6">
+<h2 style="margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.02em">{{s.name}}</h2>
+<div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #57534e">{{s.pkg}}</div>
+<p style="margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: #44403c">{{s.desc}}</p>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; align-items: center; gap: 6px">
+<span title="Accent" style="width: 20px; height: 20px; border-radius: 6px; background: {{s.accent}}; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12)"></span>
+<span title="Selected" style="width: 20px; height: 20px; border-radius: 6px; background: {{s.soft}}; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12)"></span>
+<span title="Surface" style="width: 20px; height: 20px; border-radius: 6px; background: {{s.ground}}; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12)"></span>
+<span title="Text" style="width: 20px; height: 20px; border-radius: 6px; background: {{s.text}}; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12)"></span>
+<span style="margin-left: 6px; font-size: 12px; color: #57534e">{{s.fontName}}</span>
+</div>
+</div>
+<div style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 18px; background: {{s.ground}}; font-family: {{s.font}}; color: {{s.text}}">
+<dc-import name="Toolbar" skin="{{s.id}}" width="992" hint-size="992px,52px"></dc-import>
+<div style="display: flex; align-items: center; gap: 24px">
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 20px; line-height: 1.2; font-weight: {{s.headW}}; letter-spacing: {{s.headTrack}}; text-transform: {{s.headCase}}">How a block settles</div>
+<div style="font-size: 14px; line-height: 1.5; color: {{s.muted}}">A closed block is <strong style="color: {{s.text}}; background: {{s.sel}}">final</strong>: its node, its key and its DOM stay put. <span style="padding: 1px 8px; border-radius: {{s.pillR}}px; background: {{s.soft}}; color: {{s.softText}}; font-weight: 500">@editor-team</span></div>
+</div>
+<div role="group" aria-label="View" style="display: flex; gap: 2px; padding: 3px; background: {{s.segBg}}; border: {{s.segBorder}}; border-radius: {{s.segR}}px">
+<button type="button" aria-pressed="true" style="height: 30px; padding: 0 12px; border: none; border-radius: {{s.btnR}}px; background: {{s.segSel}}; color: {{s.segSelText}}; box-shadow: {{s.segShadow}}; font-family: inherit; font-size: 13px; font-weight: 500">Rich text</button>
+<button type="button" aria-pressed="false" style="height: 30px; padding: 0 12px; border: none; border-radius: {{s.btnR}}px; background: transparent; color: {{s.muted}}; font-family: inherit; font-size: 13px; font-weight: 500">Split</button>
+<button type="button" aria-pressed="false" style="height: 30px; padding: 0 12px; border: none; border-radius: {{s.btnR}}px; background: transparent; color: {{s.muted}}; font-family: inherit; font-size: 13px; font-weight: 500">Source</button>
+</div>
+<button type="button" style="height: 36px; padding: 0 16px; border: {{s.primaryBorder}}; border-radius: {{s.btnR}}px; background: {{s.accent}}; color: {{s.onAccent}}; box-shadow: {{s.btnShadow}}; font-family: inherit; font-size: 13px; font-weight: 600; text-transform: {{s.labelCase}}">Export</button>
+</div>
+</div>
+</section>
+</sc-for>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1600}}'>
+var SKINS = [
+  { id: 'basic', name: 'Basic', pkg: '@sigx/zero-basic', desc: 'Neutral starter: readable defaults, quiet chrome, a flat white bar.', fontName: 'Geist', font: "'Geist', system-ui, sans-serif", ground: '#f5f5f4', text: '#1c1917', muted: '#57534e', accent: '#1d4ed8', onAccent: '#ffffff', soft: '#e6edfc', softText: '#1e3a8a', sel: 'rgba(29,78,216,.14)', btnR: 7, pillR: 999, segBg: '#ffffff', segBorder: '1px solid #e7e5e4', segR: 9, segSel: '#f0efed', segSelText: '#1c1917', segShadow: 'none', primaryBorder: '1px solid #1d4ed8', btnShadow: '0 1px 2px rgba(29,78,216,.25)', headW: 650, headCase: 'none', headTrack: '-0.02em', labelCase: 'none' },
+  { id: 'material', name: 'Material 3', pkg: '@sigx/zero-material', desc: 'A floating pill toolbar, tonal selection and round 40px-class targets.', fontName: 'Roboto Flex', font: "'Roboto Flex', 'Roboto', sans-serif", ground: '#fef7ff', text: '#1d1b20', muted: '#49454f', accent: '#6750a4', onAccent: '#ffffff', soft: '#e8def8', softText: '#1d192b', sel: 'rgba(103,80,164,.18)', btnR: 20, pillR: 8, segBg: 'transparent', segBorder: '1px solid #79747e', segR: 22, segSel: '#e8def8', segSelText: '#1d192b', segShadow: 'none', primaryBorder: 'none', btnShadow: 'none', headW: 500, headCase: 'none', headTrack: '0', labelCase: 'none' },
+  { id: 'brutalist', name: 'Brutalist', pkg: '@sigx/zero-brutalist', desc: 'Two-pixel rules, offset shadows, a yellow pressed state, uppercase labels.', fontName: 'Space Grotesk', font: "'Space Grotesk', sans-serif", ground: '#efeadb', text: '#111111', muted: '#2b2b2b', accent: '#111111', onAccent: '#fffdf5', soft: '#ffe14d', softText: '#111111', sel: '#ffe14d', btnR: 0, pillR: 0, segBg: '#fffdf5', segBorder: '2px solid #111111', segR: 0, segSel: '#ffe14d', segSelText: '#111111', segShadow: 'none', primaryBorder: '2px solid #111111', btnShadow: '3px 3px 0 #111111', headW: 700, headCase: 'uppercase', headTrack: '-0.01em', labelCase: 'uppercase' },
+  { id: 'carbon', name: 'Carbon', pkg: '@sigx/zero-carbon', desc: 'Square 40px targets on a flat layer, a high-contrast content switcher.', fontName: 'IBM Plex Sans', font: "'IBM Plex Sans', sans-serif", ground: '#ffffff', text: '#161616', muted: '#525252', accent: '#0f62fe', onAccent: '#ffffff', soft: '#d0e2ff', softText: '#002d9c', sel: 'rgba(15,98,254,.18)', btnR: 0, pillR: 999, segBg: '#ffffff', segBorder: '1px solid #8d8d8d', segR: 0, segSel: '#161616', segSelText: '#ffffff', segShadow: 'none', primaryBorder: 'none', btnShadow: 'none', headW: 400, headCase: 'none', headTrack: '0', labelCase: 'none' },
+  { id: 'daisyui', name: 'daisyUI', pkg: '@sigx/zero-daisyui', desc: 'Soft rounded surfaces, a filled primary pressed state, friendly weight.', fontName: 'Nunito', font: "'Nunito', sans-serif", ground: '#f2f2f5', text: '#18181b', muted: '#52525b', accent: '#605dff', onAccent: '#ffffff', soft: '#ebeaff', softText: '#3431b8', sel: 'rgba(96,93,255,.18)', btnR: 10, pillR: 999, segBg: '#f8f8f8', segBorder: '1px solid #e5e5e5', segR: 12, segSel: '#ffffff', segSelText: '#18181b', segShadow: '0 1px 3px rgba(0,0,0,.1)', primaryBorder: 'none', btnShadow: '0 3px 0 -1px rgba(0,0,0,.12)', headW: 800, headCase: 'none', headTrack: '-0.01em', labelCase: 'none' },
+  { id: 'heroui', name: 'HeroUI', pkg: '@sigx/zero-heroui', desc: 'An elevated floating bar, generous radii and a soft primary tint.', fontName: 'Manrope', font: "'Manrope', sans-serif", ground: '#f4f4f5', text: '#11181c', muted: '#52525b', accent: '#006fee', onAccent: '#ffffff', soft: '#e6f1fe', softText: '#004493', sel: 'rgba(0,111,238,.16)', btnR: 10, pillR: 999, segBg: '#e4e4e7', segBorder: '1px solid transparent', segR: 12, segSel: '#ffffff', segSelText: '#11181c', segShadow: '0 1px 3px rgba(0,0,0,.12)', primaryBorder: 'none', btnShadow: '0 4px 12px -4px rgba(0,111,238,.5)', headW: 700, headCase: 'none', headTrack: '-0.02em', labelCase: 'none' }
+];
+class Component extends DCLogic {
+  renderVals() {
+    return { skins: SKINS };
+  }
+}
+</script>
+</body>
+</html>

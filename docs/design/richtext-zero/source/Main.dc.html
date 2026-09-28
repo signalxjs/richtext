@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Richtext editor on zero</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=Roboto+Flex:wght@400;500;600&amp;family=Roboto+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;700&amp;family=Space+Mono:wght@400;700&amp;family=Fira+Code:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}
+.ui-btn{cursor:pointer}
+.ui-btn:focus-visible{outline:2px solid var(--ui-accent);outline-offset:2px}
+.ui-ghost:hover{background:var(--ui-hover) !important}
+.doc-scroll::-webkit-scrollbar{width:10px}
+.doc-scroll::-webkit-scrollbar-thumb{background:var(--ui-border);border-radius:10px;border:3px solid transparent;background-clip:padding-box}
+@keyframes caret{0%,49%{opacity:1}50%,100%{opacity:0}}
+.caret{animation:caret 1.05s steps(1) infinite}
+</style>
+</helmet>
+<div data-scope="richtext-editor" data-part="root" style="width: 1440px; height: 1000px; display: flex; flex-direction: column; overflow: hidden; background: {{t.ground}}; color: {{t.text}}; font-family: {{t.font}}; --ui-accent: {{t.accent}}; --ui-hover: {{t.hover}}; --ui-border: {{t.border}}">
+
+<header style="height: 64px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 16px; padding: 0 20px; background: {{t.surface}}; border-bottom: {{t.bw}}px solid {{t.border}}">
+<div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex-grow: 1">
+<div aria-hidden="true" style="width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: {{t.accent}}; color: {{t.onAccent}}; border-radius: {{t.btnR}}px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4v16 M17 4v16 M19 4H9.5a4.5 4.5 0 0 0 0 9H13"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<nav aria-label="Breadcrumb" style="display: flex; gap: 6px; font-size: 12px; color: {{t.faint}}"><a href="#docs" style="text-decoration: none">Docs</a><span aria-hidden="true">/</span><a href="#eng" style="text-decoration: none">Engineering</a></nav>
+<div style="font-size: 15px; font-weight: 600; white-space: nowrap; text-transform: {{t.labelCase}}">Streaming renderer — design notes</div>
+</div>
+<div style="display: flex; align-items: center; gap: 6px; margin-left: 8px; padding: 4px 10px 4px 8px; border-radius: {{t.pillR}}px; background: {{t.raised}}; color: {{t.muted}}; font-size: 12px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z M9 13.5l2 2 4-4"></path></svg>
+Saved
+</div>
+</div>
+
+<div role="group" aria-label="View" style="display: flex; gap: 2px; padding: 3px; background: {{t.segBg}}; border: {{t.segBorder}}; border-radius: {{t.segR}}px">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="3">
+<button type="button" class="ui-btn" aria-pressed="{{v.pressed}}" onClick="{{v.pick}}" style="height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: none; border-radius: {{t.btnR}}px; background: {{v.bg}}; color: {{v.fg}}; box-shadow: {{v.shadow}}; font-family: inherit; font-size: 13px; font-weight: 500">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{v.d}}"></path></svg>
+{{v.label}}
+</button>
+</sc-for>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px">
+<span id="fmt-label" style="font-size: 12px; color: {{t.faint}}">Format</span>
+<div role="group" aria-labelledby="fmt-label" style="display: flex; gap: 2px; padding: 3px; background: {{t.segBg}}; border: {{t.segBorder}}; border-radius: {{t.segR}}px">
+<sc-for list="{{formats}}" as="f" hint-placeholder-count="2">
+<button type="button" class="ui-btn" aria-pressed="{{f.pressed}}" onClick="{{f.pick}}" style="height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: none; border-radius: {{t.btnR}}px; background: {{f.bg}}; color: {{f.fg}}; box-shadow: {{f.shadow}}; font-family: inherit; font-size: 13px; font-weight: 500">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.d}}"></path></svg>
+{{f.label}}
+</button>
+</sc-for>
+</div>
+</div>
+
+<button type="button" class="ui-btn" style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border: {{t.primaryBorder}}; border-radius: {{t.btnR}}px; background: {{t.accent}}; color: {{t.onAccent}}; box-shadow: {{t.btnShadow}}; font-family: inherit; font-size: 13px; font-weight: 600; text-transform: {{t.labelCase}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6l-4-4-4 4 M12 2v13"></path></svg>
+Export
+</button>
+</header>
+
+<div style="flex-grow: 1; min-height: 0; display: flex">
+
+<aside aria-label="Document outline" style="width: 248px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; padding: 20px 14px; background: {{t.surface}}; border-right: {{t.bw}}px solid {{t.border}}">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{t.faint}}">Outline</div>
+<sc-for list="{{outline}}" as="o" hint-placeholder-count="4">
+<a href="#{{o.id}}" class="ui-ghost" style="display: block; padding: 7px 10px 7px {{o.indent}}px; border-radius: {{t.btnR}}px; background: {{o.bg}}; color: {{o.fg}}; font-size: 13px; font-weight: {{o.w}}; text-decoration: none">{{o.label}}</a>
+</sc-for>
+</div>
+<div style="height: {{t.bw}}px; background: {{t.border}}"></div>
+<dl style="margin: 0; padding: 0 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; font-size: 13px">
+<dt style="color: {{t.faint}}">Format</dt><dd style="margin: 0; text-align: right; font-weight: 500">{{formatName}}</dd>
+<dt style="color: {{t.faint}}">Words</dt><dd style="margin: 0; text-align: right; font-weight: 500">{{words}}</dd>
+<dt style="color: {{t.faint}}">Blocks</dt><dd style="margin: 0; text-align: right; font-weight: 500">16</dd>
+<dt style="color: {{t.faint}}">Reading</dt><dd style="margin: 0; text-align: right; font-weight: 500">1 min</dd>
+</dl>
+<div style="height: {{t.bw}}px; background: {{t.border}}"></div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 0 10px">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{t.faint}}">Plugins</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="padding: 3px 9px; border-radius: {{t.pillR}}px; background: {{t.raised}}; border: {{t.chipBorder}}; font-size: 12px; font-family: {{t.mono}}">shiki</span>
+<span style="padding: 3px 9px; border-radius: {{t.pillR}}px; background: {{t.raised}}; border: {{t.chipBorder}}; font-size: 12px; font-family: {{t.mono}}">mention</span>
+<span style="padding: 3px 9px; border-radius: {{t.pillR}}px; background: {{t.raised}}; border: {{t.chipBorder}}; font-size: 12px; font-family: {{t.mono}}">gfm</span>
+<span style="padding: 3px 9px; border-radius: {{t.pillR}}px; background: {{t.raised}}; border: {{t.chipBorder}}; font-size: 12px; font-family: {{t.mono}}">html-paste</span>
+</div>
+</div>
+</aside>
+
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div style="padding: 16px 24px 12px; display: flex; justify-content: center; opacity: {{tbOpacity}}">
+<dc-import name="Toolbar" skin="{{skinId}}" width="1144" hint-size="1144px,52px"></dc-import>
+</div>
+
+<div class="doc-scroll" style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 24px 40px">
+<div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px">
+
+<article data-part="content" aria-label="Document" style="display: {{v.richDisp}}; flex: {{v.richFlex}}; width: {{v.richW}}; min-width: 0; box-sizing: border-box; padding: {{v.pad}}; background: {{t.surface}}; border: {{t.cardBorder}}; border-radius: {{t.r}}px; box-shadow: {{t.cardShadow}}; font-family: {{docFont}}; font-size: 16px; line-height: 1.7; color: {{t.text}}; flex-direction: column">
+
+<h1 id="streaming-renderer" style="margin: 0 0 14px; font-family: {{headFont}}; font-size: 36px; line-height: 1.15; font-weight: {{t.headW}}; letter-spacing: {{t.headTrack}}; text-transform: {{t.headCase}}">Streaming renderer</h1>
+
+<p style="margin: 0 0 16px">The engine keeps <span style="position: relative; background: {{t.sel}}; border-radius: 2px"><strong>finalized blocks stable</strong><sc-if value="{{showBubble}}" hint-placeholder-val="{{true}}"><span data-part="bubble" role="toolbar" aria-label="Selection formatting" style="position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; padding: 4px; background: {{t.popBg}}; border: {{t.popBorder}}; border-radius: {{t.popR}}px; box-shadow: {{t.popShadow}}; font-family: {{t.font}}; line-height: 1; white-space: nowrap; z-index: 3">
+<span role="tooltip" style="position: absolute; bottom: calc(100% + 8px); left: 4px; display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: {{t.tipBg}}; color: {{t.tipFg}}; border-radius: {{t.tipR}}px; font-size: 12px; font-weight: 500">Bold<kbd style="font-family: {{t.mono}}; font-size: 11px; opacity: 0.8">⌘B</kbd></span>
+<sc-for list="{{bubble}}" as="b" hint-placeholder-count="5">
+<button type="button" class="ui-btn ui-ghost" aria-label="{{b.tip}}" aria-pressed="{{b.pressed}}" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: {{t.btnR}}px; background: {{b.bg}}; color: {{b.fg}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.d}}"></path></svg>
+</button>
+</sc-for>
+<span aria-hidden="true" style="width: {{t.sepW}}px; height: 20px; margin: 0 4px; background: {{t.border}}"></span>
+<button type="button" class="ui-btn ui-ghost" aria-haspopup="menu" style="height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 10px; border: none; border-radius: {{t.btnR}}px; background: transparent; color: {{t.text}}; font-family: inherit; font-size: 13px; font-weight: 500">Turn into<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+</span></sc-if></span> while the source string grows, so a chat answer can render <em>token by token</em> without re-laying out what the reader has already seen.</p>
+
+<h2 id="how-a-block-settles" style="margin: 36px 0 10px; font-family: {{headFont}}; font-size: 23px; line-height: 1.3; font-weight: {{t.headW}}; letter-spacing: {{t.headTrack}}; text-transform: {{t.headCase}}">How a block settles</h2>
+<ol style="margin: 0 0 18px; padding-left: 26px">
+<li style="padding-left: 4px; margin-bottom: 4px">The line engine reads the growing string and closes a block at its first blank line.</li>
+<li style="padding-left: 4px; margin-bottom: 4px">A closed block is <strong>final</strong>: its node, its key and its DOM stay put.</li>
+<li style="padding-left: 4px">Only the open tail is parsed again on the next token.</li>
+</ol>
+
+<blockquote style="margin: 0 0 18px; padding: 4px 0 4px 18px; border-left: {{t.quoteRule}}; color: {{t.muted}}; font-style: italic">One plugin contract feeds every format, every renderer and the editor.</blockquote>
+
+<sc-if value="{{showSlash}}" hint-placeholder-val="{{false}}">
+<div style="position: relative; margin: 0 0 18px">
+<p style="margin: 0; display: flex; align-items: center">/<span class="caret" aria-hidden="true" style="display: inline-block; width: 2px; height: 20px; margin-left: 1px; background: {{t.accent}}"></span><span style="margin-left: 10px; color: {{t.faint}}">Filter blocks…</span></p>
+<div data-scope="richtext-block-menu" data-part="root" role="listbox" aria-label="Insert block" style="position: absolute; top: calc(100% + 6px); left: -8px; width: 340px; z-index: 3; display: flex; flex-direction: column; padding: 6px; background: {{t.popBg}}; border: {{t.popBorder}}; border-radius: {{t.popR}}px; box-shadow: {{t.popShadow}}; font-family: {{t.font}}; line-height: 1.3">
+<div data-part="label" style="padding: 6px 8px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{t.faint}}">Basic blocks</div>
+<sc-for list="{{slash}}" as="s" hint-placeholder-count="7">
+<div data-part="item" role="option" aria-selected="{{s.selected}}" style="display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: {{t.btnR}}px; background: {{s.bg}}; border: {{s.bd}}">
+<span aria-hidden="true" style="width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: {{t.surface}}; border: {{t.bw}}px solid {{t.border}}; border-radius: {{t.btnR}}px; color: {{t.text}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{s.d}}"></path></svg></span>
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 500; color: {{s.fg}}">{{s.label}}</span><span style="font-size: 12px; color: {{t.faint}}">{{s.desc}}</span></span>
+<kbd style="padding: 2px 6px; font-family: {{t.mono}}; font-size: 11px; color: {{t.muted}}; background: {{t.raised}}; border: {{t.bw}}px solid {{t.border}}; border-radius: 4px">{{s.hint}}</kbd>
+</div>
+</sc-for>
+<div style="display: flex; gap: 14px; margin-top: 6px; padding: 8px 8px 4px; border-top: {{t.bw}}px solid {{t.border}}; font-size: 12px; color: {{t.faint}}"><span>↑↓ navigate</span><span>↵ insert</span><span>esc close</span></div>
+</div>
+</div>
+</sc-if>
+
+<div data-part="code" style="margin: 0 0 18px; background: {{t.codeBg}}; border: {{t.codeBorder}}; border-radius: {{t.r}}px; overflow: hidden">
+<div data-part="code-header" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; border-bottom: {{t.bw}}px solid {{t.codeRule}}; font-family: {{t.font}}; font-size: 12px; line-height: 1">
+<button type="button" class="ui-btn" data-part="code-lang" aria-haspopup="listbox" aria-label="Language: TypeScript" style="height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: {{t.bw}}px solid {{t.codeRule}}; border-radius: {{t.btnR}}px; background: transparent; color: {{t.codeMuted}}; font-family: inherit; font-size: 12px; font-weight: 500">TypeScript<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+<span style="flex-grow: 1"></span>
+<button type="button" class="ui-btn" aria-label="Copy code" style="width: 28px; height: 26px; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: {{t.btnR}}px; background: transparent; color: {{t.codeMuted}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9h11v11H9z M5 15H4V4h11v1"></path></svg></button>
+</div>
+<pre data-part="code-body" style="margin: 0; padding: 14px 16px 16px; font-family: {{t.mono}}; font-size: 13.5px; line-height: 1.65; color: {{t.codeText}}; white-space: pre-wrap"><sc-for list="{{code}}" as="ln" hint-placeholder-count="7"><span style="display: block"><sc-for list="{{ln.segs}}" as="s" hint-placeholder-count="2"><span style="color: {{s.color}}; font-style: {{s.st}}">{{s.x}}</span></sc-for></span></sc-for></pre>
+</div>
+
+<h2 id="format-support" style="margin: 36px 0 10px; font-family: {{headFont}}; font-size: 23px; line-height: 1.3; font-weight: {{t.headW}}; letter-spacing: {{t.headTrack}}; text-transform: {{t.headCase}}">Format support</h2>
+<p style="margin: 0 0 16px">Both codecs read into the same mdast-shaped tree — see the <span style="position: relative"><a href="https://spec.commonmark.org" style="color: {{t.link}}; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px">CommonMark spec</a><sc-if value="{{showLink}}" hint-placeholder-val="{{false}}"><span data-scope="richtext-link" data-part="root" style="position: absolute; top: calc(100% + 8px); left: -12px; width: 380px; z-index: 3; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: {{t.popBg}}; border: {{t.popBorder}}; border-radius: {{t.popR}}px; box-shadow: {{t.popShadow}}; font-family: {{t.font}}; font-style: normal; line-height: 1.2">
+<span data-part="form" style="display: flex; gap: 6px">
+<label style="flex-grow: 1; display: flex; align-items: center; gap: 8px; height: 34px; box-sizing: border-box; padding: 0 10px; background: {{t.fieldBg}}; border: {{t.fieldBorder}}; border-radius: {{t.btnR}}px; color: {{t.muted}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Link URL</span><input data-part="input" type="url" value="https://spec.commonmark.org" style="flex-grow: 1; min-width: 0; border: none; outline: none; background: transparent; color: {{t.text}}; font-family: inherit; font-size: 13px"></label>
+<button type="button" class="ui-btn" data-part="apply" style="height: 34px; padding: 0 14px; border: {{t.primaryBorder}}; border-radius: {{t.btnR}}px; background: {{t.accent}}; color: {{t.onAccent}}; font-family: inherit; font-size: 13px; font-weight: 600">Apply</button>
+</span>
+<span style="display: flex; gap: 4px; font-size: 12px">
+<a data-part="url" href="https://spec.commonmark.org" class="ui-ghost" style="display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: {{t.btnR}}px; color: {{t.muted}}; text-decoration: none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6 M10 14 21 3 M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>Open link</a>
+<button type="button" class="ui-btn ui-ghost" data-part="remove" style="display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: none; border-radius: {{t.btnR}}px; background: transparent; color: {{t.muted}}; font-family: inherit; font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71 M5.17 11.75l-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71 M8 2v3 M2 8h3 M16 22v-3 M22 16h-3"></path></svg>Remove link</button>
+</span>
+</span></sc-if></span> for the reference layout.</p>
+
+<div style="margin: 0 0 18px; border: {{t.bw}}px solid {{t.border}}; border-radius: {{t.r}}px; overflow: hidden">
+<table data-part="table" style="width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.45">
+<thead><tr style="background: {{t.raised}}; text-align: left">
+<th scope="col" style="padding: 10px 14px; font-weight: 600; border-bottom: {{t.bw}}px solid {{t.border}}">Format</th>
+<th scope="col" style="padding: 10px 14px; font-weight: 600; border-bottom: {{t.bw}}px solid {{t.border}}">Parse</th>
+<th scope="col" style="padding: 10px 14px; font-weight: 600; border-bottom: {{t.bw}}px solid {{t.border}}">Serialize</th>
+<th scope="col" style="padding: 10px 14px; font-weight: 600; border-bottom: {{t.bw}}px solid {{t.border}}">Clipboard</th>
+</tr></thead>
+<tbody>
+<tr><td style="padding: 10px 14px; border-bottom: {{t.bw}}px solid {{t.border}}">Markdown</td><td style="padding: 10px 14px; border-bottom: {{t.bw}}px solid {{t.border}}">CommonMark + GFM</td><td style="padding: 10px 14px; border-bottom: {{t.bw}}px solid {{t.border}}"><code style="font-family: {{t.mono}}; font-size: 13px; padding: 2px 6px; background: {{t.inlineCodeBg}}; border-radius: 4px">toMarkdown</code></td><td style="padding: 10px 14px; border-bottom: {{t.bw}}px solid {{t.border}}"><code style="font-family: {{t.mono}}; font-size: 13px; padding: 2px 6px; background: {{t.inlineCodeBg}}; border-radius: 4px">text/plain</code></td></tr>
+<tr><td style="padding: 10px 14px">HTML</td><td style="padding: 10px 14px"><code style="font-family: {{t.mono}}; font-size: 13px; padding: 2px 6px; background: {{t.inlineCodeBg}}; border-radius: 4px">parseHtml</code></td><td style="padding: 10px 14px"><code style="font-family: {{t.mono}}; font-size: 13px; padding: 2px 6px; background: {{t.inlineCodeBg}}; border-radius: 4px">toHtml</code></td><td style="padding: 10px 14px"><code style="font-family: {{t.mono}}; font-size: 13px; padding: 2px 6px; background: {{t.inlineCodeBg}}; border-radius: 4px">text/html</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="open-items" style="margin: 36px 0 10px; font-family: {{headFont}}; font-size: 23px; line-height: 1.3; font-weight: {{t.headW}}; letter-spacing: {{t.headTrack}}; text-transform: {{t.headCase}}">Open items</h2>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{tasks}}" as="k" hint-placeholder-count="3">
+<li data-part="list-item" style="display: flex; align-items: flex-start; gap: 10px">
+<input data-part="task-check" type="checkbox" id="{{k.id}}" checked="{{k.done}}" onChange="{{k.flip}}" style="width: 17px; height: 17px; margin: 5px 0 0; accent-color: {{t.accent}}; cursor: pointer">
+<label for="{{k.id}}" style="color: {{k.fg}}; text-decoration: {{k.deco}}; text-decoration-color: {{t.faint}}">{{k.text}}<sc-if value="{{k.code}}" hint-placeholder-val="{{false}}"> <code style="font-family: {{t.mono}}; font-size: 14px; padding: 2px 6px; background: {{t.inlineCodeBg}}; border-radius: 4px">{{k.code}}</code></sc-if><sc-if value="{{k.mention}}" hint-placeholder-val="{{false}}"> <span style="padding: 1px 8px; border-radius: {{t.pillR}}px; background: {{t.soft}}; color: {{t.softText}}; font-family: {{t.font}}; font-size: 14px; font-weight: 500">@editor-team</span></sc-if></label>
+</li>
+</sc-for>
+</ul>
+</article>
+
+<section aria-label="{{formatName}} source" style="display: {{v.srcDisp}}; flex: {{v.srcFlex}}; width: {{v.srcW}}; min-width: 0; box-sizing: border-box; background: {{t.srcBg}}; border: {{t.cardBorder}}; border-radius: {{t.r}}px; box-shadow: {{t.cardShadow}}; overflow: hidden; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px 12px 18px; border-bottom: {{t.bw}}px solid {{t.srcRule}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: {{t.srcMuted}}"><path d="{{fmtIcon}}"></path></svg>
+<span style="font-size: 13px; font-weight: 600; color: {{t.srcText}}">{{formatName}}</span>
+<span style="padding: 2px 8px; border-radius: {{t.pillR}}px; background: {{t.srcChip}}; color: {{t.srcMuted}}; font-size: 11px; font-weight: 500">{{fmtBadge}}</span>
+<span style="flex-grow: 1"></span>
+<button type="button" class="ui-btn" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: {{t.bw}}px solid {{t.srcRule}}; border-radius: {{t.btnR}}px; background: transparent; color: {{t.srcMuted}}; font-family: inherit; font-size: 12px; font-weight: 500"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9h11v11H9z M5 15H4V4h11v1"></path></svg>Copy</button>
+</div>
+<pre style="margin: 0; padding: 14px 18px 20px 0; font-family: {{t.mono}}; font-size: 13px; line-height: 1.7; white-space: pre-wrap; word-break: break-word"><sc-for list="{{src}}" as="ln" hint-placeholder-count="12"><span style="display: flex"><span aria-hidden="true" style="width: 48px; flex-shrink: 0; padding-right: 14px; box-sizing: border-box; text-align: right; color: {{t.srcNum}}; user-select: none">{{ln.n}}</span><span style="flex-grow: 1; min-width: 0"><sc-for list="{{ln.segs}}" as="s" hint-placeholder-count="2"><span style="color: {{s.color}}; font-weight: {{s.w}}; font-style: {{s.st}}">{{s.x}}</span></sc-for></span></span></sc-for></pre>
+</section>
+
+</div>
+</div>
+</main>
+</div>
+
+<footer style="height: 34px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 18px; padding: 0 20px; background: {{t.surface}}; border-top: {{t.bw}}px solid {{t.border}}; font-size: 12px; color: {{t.muted}}">
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 99px; background: {{t.okDot}}"></span>Paragraph</span>
+<span>{{words}} words</span>
+<span>{{formatName}} · {{fmtBadge}}</span>
+<span style="flex-grow: 1"></span>
+<span style="display: flex; align-items: center; gap: 6px"><kbd style="padding: 1px 6px; font-family: {{t.mono}}; font-size: 11px; background: {{t.raised}}; border: {{t.bw}}px solid {{t.border}}; border-radius: 4px">/</kbd>commands</span>
+<span style="display: flex; align-items: center; gap: 6px"><kbd style="padding: 1px 6px; font-family: {{t.mono}}; font-size: 11px; background: {{t.raised}}; border: {{t.bw}}px solid {{t.border}}; border-radius: 4px">⌘K</kbd>link</span>
+<span style="font-family: {{t.mono}}; font-size: 11px; color: {{t.faint}}">{{t.pkg}}</span>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"skin":{"editor":"enum","options":["basic","material","brutalist","carbon","daisyui","heroui"],"default":"basic","section":"Look"},"docFont":{"editor":"enum","options":["skin","serif"],"default":"skin","section":"Look"},"overlay":{"editor":"enum","options":["bubble","slash","link","none"],"default":"bubble","section":"State"},"view":{"editor":"enum","options":["rich","split","source"],"default":"rich","section":"State"},"$preview":{"width":1440,"height":1000}}'>
+var SKINS = {
+  basic: { pkg: '@sigx/zero-basic', font: "'Geist', system-ui, sans-serif", mono: "'Geist Mono', ui-monospace, monospace", ground: '#f5f5f4', surface: '#ffffff', raised: '#f5f5f4', border: '#e7e5e4', text: '#1c1917', muted: '#57534e', faint: '#6f6a66', accent: '#1d4ed8', onAccent: '#ffffff', soft: '#e6edfc', softText: '#1e3a8a', link: '#1d4ed8', hover: '#f0efed', r: 12, btnR: 7, pillR: 999, bw: 1, sepW: 1, labelCase: 'none', cardBorder: '1px solid #e7e5e4', cardShadow: '0 1px 2px rgba(28,25,23,.05)', popBg: '#ffffff', popBorder: '1px solid #e7e5e4', popR: 10, popShadow: '0 16px 40px -12px rgba(28,25,23,.25), 0 2px 6px rgba(28,25,23,.06)', tipBg: '#1c1917', tipFg: '#fafaf9', tipR: 6, segBg: '#f5f5f4', segBorder: '1px solid #e7e5e4', segR: 9, segSel: '#ffffff', segSelText: '#1c1917', segShadow: '0 1px 2px rgba(28,25,23,.14)', primaryBorder: '1px solid #1d4ed8', btnShadow: '0 1px 2px rgba(29,78,216,.25)', chipBorder: '1px solid #e7e5e4', fieldBg: '#fafaf9', fieldBorder: '1px solid #e7e5e4', sel: 'rgba(29,78,216,.14)', quoteRule: '3px solid #d6d3d1', codeBg: '#fafaf9', codeBorder: '1px solid #e7e5e4', codeRule: '#e7e5e4', codeText: '#1c1917', codeMuted: '#57534e', inlineCodeBg: '#f0efed', kw: '#7c3aed', str: '#047857', fn: '#1d4ed8', com: '#6f6a66', srcBg: '#1c1917', srcRule: '#3a3633', srcText: '#fafaf9', srcMuted: '#c7c2bd', srcChip: '#2c2826', srcNum: '#8a847f', sText: '#e7e5e4', sMark: '#c4b5fd', sHead: '#ffffff', sCode: '#86efac', sLink: '#93c5fd', okDot: '#15803d', headW: 650, headCase: 'none', headTrack: '-0.02em' },
+  material: { pkg: '@sigx/zero-material', font: "'Roboto Flex', 'Roboto', sans-serif", mono: "'Roboto Mono', monospace", ground: '#f7f2fa', surface: '#fef7ff', raised: '#f3edf7', border: '#cac4d0', text: '#1d1b20', muted: '#49454f', faint: '#625b71', accent: '#6750a4', onAccent: '#ffffff', soft: '#e8def8', softText: '#1d192b', link: '#6750a4', hover: '#ece6f0', r: 16, btnR: 20, pillR: 8, bw: 1, sepW: 1, labelCase: 'none', cardBorder: 'none', cardShadow: '0 1px 3px 1px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.18)', popBg: '#f3edf7', popBorder: 'none', popR: 16, popShadow: '0 4px 8px 3px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.24)', tipBg: '#322f35', tipFg: '#f5eff7', tipR: 4, segBg: 'transparent', segBorder: '1px solid #79747e', segR: 22, segSel: '#e8def8', segSelText: '#1d192b', segShadow: 'none', primaryBorder: 'none', btnShadow: 'none', chipBorder: '1px solid #cac4d0', fieldBg: '#fef7ff', fieldBorder: '1px solid #79747e', sel: 'rgba(103,80,164,.18)', quoteRule: '4px solid #cac4d0', codeBg: '#f3edf7', codeBorder: 'none', codeRule: '#e2dbe8', codeText: '#1d1b20', codeMuted: '#49454f', inlineCodeBg: '#ece6f0', kw: '#6750a4', str: '#386a20', fn: '#7d5260', com: '#625b71', srcBg: '#fef7ff', srcRule: '#e6e0e9', srcText: '#1d1b20', srcMuted: '#49454f', srcChip: '#e8def8', srcNum: '#79747e', sText: '#1d1b20', sMark: '#6750a4', sHead: '#1d1b20', sCode: '#386a20', sLink: '#7d5260', okDot: '#386a20', headW: 500, headCase: 'none', headTrack: '0' },
+  brutalist: { pkg: '@sigx/zero-brutalist', font: "'Space Grotesk', sans-serif", mono: "'Space Mono', monospace", ground: '#efeadb', surface: '#fffdf5', raised: '#f4efe0', border: '#111111', text: '#111111', muted: '#2b2b2b', faint: '#444444', accent: '#111111', onAccent: '#fffdf5', soft: '#ffe14d', softText: '#111111', link: '#111111', hover: '#f1ecd9', r: 0, btnR: 0, pillR: 0, bw: 2, sepW: 2, labelCase: 'uppercase', cardBorder: '2px solid #111111', cardShadow: '6px 6px 0 #111111', popBg: '#fffdf5', popBorder: '2px solid #111111', popR: 0, popShadow: '5px 5px 0 #111111', tipBg: '#111111', tipFg: '#ffe14d', tipR: 0, segBg: '#fffdf5', segBorder: '2px solid #111111', segR: 0, segSel: '#ffe14d', segSelText: '#111111', segShadow: 'none', primaryBorder: '2px solid #111111', btnShadow: '3px 3px 0 #111111', chipBorder: '2px solid #111111', fieldBg: '#fffdf5', fieldBorder: '2px solid #111111', sel: '#ffe14d', quoteRule: '6px solid #111111', codeBg: '#111111', codeBorder: '2px solid #111111', codeRule: '#3a3a3a', codeText: '#fffdf5', codeMuted: '#d8d3c4', inlineCodeBg: '#ffe14d', kw: '#ffe14d', str: '#7ee0a1', fn: '#8ecbff', com: '#a8a29e', srcBg: '#111111', srcRule: '#3a3a3a', srcText: '#fffdf5', srcMuted: '#d8d3c4', srcChip: '#2a2a2a', srcNum: '#8c877a', sText: '#fffdf5', sMark: '#ffe14d', sHead: '#ffffff', sCode: '#7ee0a1', sLink: '#8ecbff', okDot: '#111111', headW: 700, headCase: 'uppercase', headTrack: '-0.01em' },
+  carbon: { pkg: '@sigx/zero-carbon', font: "'IBM Plex Sans', sans-serif", mono: "'IBM Plex Mono', monospace", ground: '#f4f4f4', surface: '#ffffff', raised: '#f4f4f4', border: '#e0e0e0', text: '#161616', muted: '#525252', faint: '#6f6f6f', accent: '#0f62fe', onAccent: '#ffffff', soft: '#d0e2ff', softText: '#002d9c', link: '#0f62fe', hover: '#e8e8e8', r: 0, btnR: 0, pillR: 999, bw: 1, sepW: 1, labelCase: 'none', cardBorder: '1px solid #e0e0e0', cardShadow: 'none', popBg: '#ffffff', popBorder: 'none', popR: 0, popShadow: '0 2px 6px rgba(0,0,0,.3)', tipBg: '#393939', tipFg: '#f4f4f4', tipR: 2, segBg: '#ffffff', segBorder: '1px solid #8d8d8d', segR: 0, segSel: '#161616', segSelText: '#ffffff', segShadow: 'none', primaryBorder: 'none', btnShadow: 'none', chipBorder: '1px solid transparent', fieldBg: '#f4f4f4', fieldBorder: '1px solid transparent', sel: 'rgba(15,98,254,.18)', quoteRule: '2px solid #0f62fe', codeBg: '#f4f4f4', codeBorder: 'none', codeRule: '#e0e0e0', codeText: '#161616', codeMuted: '#525252', inlineCodeBg: '#e8e8e8', kw: '#8a3ffc', str: '#198038', fn: '#0043ce', com: '#6f6f6f', srcBg: '#161616', srcRule: '#393939', srcText: '#f4f4f4', srcMuted: '#c6c6c6', srcChip: '#393939', srcNum: '#8d8d8d', sText: '#f4f4f4', sMark: '#be95ff', sHead: '#ffffff', sCode: '#6fdc8c', sLink: '#78a9ff', okDot: '#24a148', headW: 400, headCase: 'none', headTrack: '0' },
+  daisyui: { pkg: '@sigx/zero-daisyui', font: "'Nunito', sans-serif", mono: "'Fira Code', monospace", ground: '#f2f2f5', surface: '#ffffff', raised: '#f8f8f8', border: '#e5e5e5', text: '#18181b', muted: '#52525b', faint: '#6b6b74', accent: '#605dff', onAccent: '#ffffff', soft: '#ebeaff', softText: '#3431b8', link: '#4a47e0', hover: '#eeeeee', r: 16, btnR: 10, pillR: 999, bw: 1, sepW: 1, labelCase: 'none', cardBorder: '1px solid #e5e5e5', cardShadow: 'none', popBg: '#ffffff', popBorder: '1px solid #e5e5e5', popR: 16, popShadow: '0 12px 32px -10px rgba(24,24,27,.28)', tipBg: '#18181b', tipFg: '#fafafa', tipR: 8, segBg: '#f8f8f8', segBorder: '1px solid #eeeeee', segR: 12, segSel: '#ffffff', segSelText: '#18181b', segShadow: '0 1px 3px rgba(0,0,0,.1)', primaryBorder: 'none', btnShadow: '0 3px 0 -1px rgba(0,0,0,.12)', chipBorder: '1px solid #e5e5e5', fieldBg: '#ffffff', fieldBorder: '1px solid #d4d4d8', sel: 'rgba(96,93,255,.18)', quoteRule: '4px solid #605dff', codeBg: '#18181b', codeBorder: 'none', codeRule: '#2e2e33', codeText: '#f4f4f5', codeMuted: '#c4c4cc', inlineCodeBg: '#f2f2f5', kw: '#c4b5fd', str: '#86efac', fn: '#93c5fd', com: '#a1a1aa', srcBg: '#18181b', srcRule: '#2e2e33', srcText: '#fafafa', srcMuted: '#c4c4cc', srcChip: '#2e2e33', srcNum: '#80808a', sText: '#e4e4e7', sMark: '#c4b5fd', sHead: '#ffffff', sCode: '#86efac', sLink: '#93c5fd', okDot: '#00a96e', headW: 800, headCase: 'none', headTrack: '-0.01em' },
+  heroui: { pkg: '@sigx/zero-heroui', font: "'Manrope', sans-serif", mono: "'Fira Code', monospace", ground: '#f4f4f5', surface: '#ffffff', raised: '#f4f4f5', border: '#e4e4e7', text: '#11181c', muted: '#52525b', faint: '#6b6b73', accent: '#006fee', onAccent: '#ffffff', soft: '#e6f1fe', softText: '#004493', link: '#006fee', hover: '#f4f4f5', r: 14, btnR: 10, pillR: 999, bw: 1, sepW: 1, labelCase: 'none', cardBorder: 'none', cardShadow: '0 0 1px rgba(0,0,0,.25), 0 2px 12px rgba(0,0,0,.05)', popBg: '#ffffff', popBorder: 'none', popR: 14, popShadow: '0 0 1px rgba(0,0,0,.3), 0 12px 32px -6px rgba(0,0,0,.2)', tipBg: '#11181c', tipFg: '#ffffff', tipR: 8, segBg: '#f4f4f5', segBorder: '1px solid transparent', segR: 12, segSel: '#ffffff', segSelText: '#11181c', segShadow: '0 1px 3px rgba(0,0,0,.12)', primaryBorder: 'none', btnShadow: '0 4px 12px -4px rgba(0,111,238,.5)', chipBorder: '1px solid transparent', fieldBg: '#f4f4f5', fieldBorder: '1px solid transparent', sel: 'rgba(0,111,238,.16)', quoteRule: '3px solid #d4d4d8', codeBg: '#fafafa', codeBorder: '1px solid #e4e4e7', codeRule: '#e4e4e7', codeText: '#11181c', codeMuted: '#52525b', inlineCodeBg: '#f4f4f5', kw: '#7828c8', str: '#12a150', fn: '#006fee', com: '#6b6b73', srcBg: '#11181c', srcRule: '#2b3238', srcText: '#ecedee', srcMuted: '#c1c4c8', srcChip: '#2b3238', srcNum: '#80868b', sText: '#ecedee', sMark: '#c9a9e9', sHead: '#ffffff', sCode: '#74dfa2', sLink: '#66aaf9', okDot: '#17c964', headW: 700, headCase: 'none', headTrack: '-0.02em' }
+};
+var ICON = {
+  rich: 'M13 4v16 M17 4v16 M19 4H9.5a4.5 4.5 0 0 0 0 9H13',
+  split: 'M12 3v18 M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
+  source: 'm16 18 6-6-6-6 M8 6l-6 6 6 6',
+  markdown: 'M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M7 15V9l2.5 3L12 9v6 M17 9v6 M15 13l2 2 2-2',
+  html: 'M4 3l1.5 16L12 21l6.5-2L20 3z M16 7H8.5l.4 4h6.7l-.5 5L12 17l-3.1-1-.2-2',
+  bold: 'M6 12h8a4 4 0 0 1 0 8H6z M6 4h7a4 4 0 0 1 0 8H6z',
+  italic: 'M19 4h-9 M14 20H5 M15 4 9 20',
+  strike: 'M16 4H9a3 3 0 0 0-2.83 4 M14 12a4 4 0 0 1 0 8H6 M4 12h16',
+  code: 'm16 18 6-6-6-6 M8 6l-6 6 6 6',
+  link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+  text: 'M4 7V4h16v3 M9 20h6 M12 4v16',
+  h2: 'M4 12h8 M4 18V6 M12 18V6 M16.5 10.5c.8-.9 1.8-1.5 3-1.5 1.4 0 2.5 1 2.5 2.4 0 2.6-5.5 3.3-5.5 6.6h5.5',
+  bullet: 'M9 6h12 M9 12h12 M9 18h12 M4 6h.01 M4 12h.01 M4 18h.01',
+  tasks: 'M3 7l2 2 4-4 M3 17l2 2 4-4 M13 6h8 M13 12h8 M13 18h8',
+  codeblock: 'M10 9.5 8 12l2 2.5 M14 9.5l2 2.5-2 2.5 M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
+  table: 'M12 3v18 M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M3 9h18 M3 15h18',
+  divider: 'M3 12h18 M8 7l4-4 4 4 M16 17l-4 4-4-4'
+};
+var CODE = [
+  "import { createIncrementalEngine } from '@sigx/richtext-markdown'",
+  '',
+  'const engine = createIncrementalEngine()',
+  "let source = ''",
+  'for await (const chunk of stream) {',
+  '  source += chunk',
+  '  render(engine.parse(source)) // finalized blocks are reused',
+  '}'
+];
+var MD = [
+  '# Streaming renderer',
+  '',
+  'The engine keeps **finalized blocks stable** while the source string grows, so a chat answer can render *token by token* without re-laying out what the reader has already seen.',
+  '',
+  '## How a block settles',
+  '',
+  '1. The line engine reads the growing string and closes a block at its first blank line.',
+  '2. A closed block is **final**: its node, its key and its DOM stay put.',
+  '3. Only the open tail is parsed again on the next token.',
+  '',
+  '> One plugin contract feeds every format, every renderer and the editor.',
+  '',
+  '```ts'
+].concat(CODE).concat([
+  '```',
+  '',
+  '## Format support',
+  '',
+  'Both codecs read into the same mdast-shaped tree — see the [CommonMark spec](https://spec.commonmark.org) for the reference layout.',
+  '',
+  '| Format | Parse | Serialize | Clipboard |',
+  '| --- | --- | --- | --- |',
+  '| Markdown | CommonMark + GFM | `toMarkdown` | `text/plain` |',
+  '| HTML | `parseHtml` | `toHtml` | `text/html` |',
+  '',
+  '## Open items',
+  '',
+  '- [x] GFM tables in the incremental engine',
+  '- [x] Paste from `text/html`',
+  '- [ ] Shiki highlighting behind `CodeHighlighter` @editor-team'
+]);
+var HTML = [
+  '<h1>Streaming renderer</h1>',
+  '<p>The engine keeps <strong>finalized blocks stable</strong> while the source string grows, so a chat answer can render <em>token by token</em> without re-laying out what the reader has already seen.</p>',
+  '<h2>How a block settles</h2>',
+  '<ol>',
+  '  <li>The line engine reads the growing string and closes a block at its first blank line.</li>',
+  '  <li>A closed block is <strong>final</strong>: its node, its key and its DOM stay put.</li>',
+  '  <li>Only the open tail is parsed again on the next token.</li>',
+  '</ol>',
+  '<blockquote>',
+  '  <p>One plugin contract feeds every format, every renderer and the editor.</p>',
+  '</blockquote>',
+  '<pre><code class="language-ts">' + CODE[0]
+].concat(CODE.slice(1, -1)).concat([
+  '}</code></pre>',
+  '<h2>Format support</h2>',
+  '<p>Both codecs read into the same mdast-shaped tree — see the <a href="https://spec.commonmark.org">CommonMark spec</a> for the reference layout.</p>',
+  '<table>',
+  '  <thead>',
+  '    <tr><th>Format</th><th>Parse</th><th>Serialize</th><th>Clipboard</th></tr>',
+  '  </thead>',
+  '  <tbody>',
+  '    <tr><td>Markdown</td><td>CommonMark + GFM</td><td><code>toMarkdown</code></td><td><code>text/plain</code></td></tr>',
+  '    <tr><td>HTML</td><td><code>parseHtml</code></td><td><code>toHtml</code></td><td><code>text/html</code></td></tr>',
+  '  </tbody>',
+  '</table>',
+  '<h2>Open items</h2>',
+  '<ul>',
+  '  <li><input type="checkbox" checked disabled> GFM tables in the incremental engine</li>',
+  '  <li><input type="checkbox" checked disabled> Paste from <code>text/html</code></li>',
+  '  <li><input type="checkbox" disabled> Shiki highlighting behind <code>CodeHighlighter</code> <span data-mention="editor-team">@editor-team</span></li>',
+  '</ul>'
+]);
+function seg(x, color, w, st) { return { x: x, color: color, w: w || 400, st: st || 'normal' }; }
+function tsLine(line, t) {
+  if (!line) return [seg(' ', t.codeText)];
+  var out = [];
+  line.split(/(\/\/.*$|'[^']*'|\b(?:import|from|const|let|for|await|of)\b|\b[a-zA-Z_]+(?=\())/).forEach(function (p) {
+    if (!p) return;
+    if (p.indexOf('//') === 0) out.push(seg(p, t.com, 400, 'italic'));
+    else if (p[0] === "'") out.push(seg(p, t.str));
+    else if (/^(import|from|const|let|for|await|of)$/.test(p)) out.push(seg(p, t.kw));
+    else if (/^[a-zA-Z_]+$/.test(p)) out.push(seg(p, t.fn));
+    else out.push(seg(p, t.codeText));
+  });
+  return out;
+}
+function mdLines(t) {
+  var fence = false;
+  return MD.map(function (line, i) {
+    var segs = [];
+    if (line.indexOf('```') === 0) { fence = !fence; segs.push(seg(line, t.sMark)); }
+    else if (fence) segs.push(seg(line || ' ', t.sCode));
+    else if (!line) segs.push(seg(' ', t.sText));
+    else {
+      var m = line.match(/^(#{1,6} |> |\d+\. |- \[[ x]\] |- )/);
+      var rest = line;
+      if (m) { segs.push(seg(m[1], t.sMark, 600)); rest = line.slice(m[1].length); }
+      if (m && m[1][0] === '#') segs.push(seg(rest, t.sHead, 700));
+      else rest.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\)|@[\w-]+|\|)/).forEach(function (p) {
+        if (!p) return;
+        if (p.indexOf('**') === 0) segs.push(seg(p, t.sHead, 700));
+        else if (p[0] === '*') segs.push(seg(p, t.sText, 400, 'italic'));
+        else if (p[0] === '`') segs.push(seg(p, t.sCode));
+        else if (p[0] === '[' || p[0] === '@') segs.push(seg(p, t.sLink));
+        else if (p === '|' || /^ ?-{3} ?$/.test(p)) segs.push(seg(p, t.sMark));
+        else segs.push(seg(p, t.sText));
+      });
+    }
+    return { n: i + 1, segs: segs };
+  });
+}
+function htmlLines(t) {
+  return HTML.map(function (line, i) {
+    var segs = [];
+    line.split(/(<[^>]+>)/).forEach(function (p) {
+      if (!p) return;
+      if (p[0] === '<') p.split(/("[^"]*")/).forEach(function (q) { if (q) segs.push(seg(q, q[0] === '"' ? t.sCode : t.sMark)); });
+      else segs.push(seg(p, t.sText));
+    });
+    return { n: i + 1, segs: segs.length ? segs : [seg(' ', t.sText)] };
+  });
+}
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: null, format: 'markdown', done: { a: true, b: true, c: false } };
+  }
+  renderVals() {
+    var self = this;
+    var skinId = SKINS[this.props.skin] ? this.props.skin : 'basic';
+    var t = SKINS[skinId];
+    var view = this.state.view || this.props.view || 'rich';
+    var format = this.state.format;
+    var overlay = this.props.overlay || 'bubble';
+    var seg3 = function (id, label, d, cur, pick) {
+      var on = id === cur;
+      return { label: label, d: d, pressed: String(on), pick: pick, bg: on ? t.segSel : 'transparent', fg: on ? t.segSelText : t.muted, shadow: on ? t.segShadow : 'none' };
+    };
+    var views = [['rich', 'Rich text'], ['split', 'Split'], ['source', 'Source']].map(function (v) {
+      return seg3(v[0], v[1], ICON[v[0]], view, function () { self.setState({ view: v[0] }); });
+    });
+    var formats = [['markdown', 'Markdown'], ['html', 'HTML']].map(function (f) {
+      return seg3(f[0], f[1], ICON[f[0]], format, function () { self.setState({ format: f[0] }); });
+    });
+    var v = {
+      rich: { richDisp: 'flex', richFlex: '0 0 auto', richW: '820px', pad: '56px 72px 64px', srcDisp: 'none', srcFlex: '0 0 auto', srcW: 'auto' },
+      split: { richDisp: 'flex', richFlex: '1 1 0', richW: 'auto', pad: '40px 44px 48px', srcDisp: 'flex', srcFlex: '1 1 0', srcW: 'auto' },
+      source: { richDisp: 'none', richFlex: '0 0 auto', richW: 'auto', pad: '0', srcDisp: 'flex', srcFlex: '0 0 auto', srcW: '920px' }
+    }[view];
+    var outline = [['streaming-renderer', 'Streaming renderer', 1], ['how-a-block-settles', 'How a block settles', 2], ['format-support', 'Format support', 2], ['open-items', 'Open items', 2]].map(function (o, i) {
+      var on = i === 0;
+      return { id: o[0], label: o[1], indent: o[2] === 1 ? 10 : 24, bg: on ? t.soft : 'transparent', fg: on ? t.softText : t.muted, w: on ? 600 : 500 };
+    });
+    var bubble = [['bold', 'Bold'], ['italic', 'Italic'], ['strike', 'Strikethrough'], ['code', 'Inline code'], ['link', 'Link']].map(function (b) {
+      var on = b[0] === 'bold';
+      return { d: ICON[b[0]], tip: b[1], pressed: String(on), bg: on ? t.soft : 'transparent', fg: on ? t.softText : t.muted };
+    });
+    var slash = [
+      ['text', 'Text', 'Plain paragraph', '¶'],
+      ['h2', 'Heading 2', 'Section heading', '##'],
+      ['bullet', 'Bulleted list', 'A simple list', '-'],
+      ['tasks', 'Task list', 'Track open items', '[ ]'],
+      ['codeblock', 'Code block', 'Highlighted with Shiki', '```'],
+      ['table', 'Table', 'GFM table, 3 × 3', '|'],
+      ['divider', 'Divider', 'Thematic break', '---']
+    ].map(function (s, i) {
+      var on = i === 1;
+      return { d: ICON[s[0]], label: s[1], desc: s[2], hint: s[3], selected: String(on), bg: on ? t.soft : 'transparent', fg: on ? t.softText : t.text, bd: on && skinId === 'brutalist' ? '2px solid #111111' : '2px solid transparent' };
+    });
+    var done = this.state.done;
+    var tasks = [
+      { id: 'a', text: 'GFM tables in the incremental engine' },
+      { id: 'b', text: 'Paste from', code: 'text/html' },
+      { id: 'c', text: 'Shiki highlighting behind', code: 'CodeHighlighter', mention: true }
+    ].map(function (k) {
+      var d = !!done[k.id];
+      return Object.assign({}, k, { id: 'task-' + k.id, done: d, code: k.code || '', mention: !!k.mention, fg: d ? t.faint : t.text, deco: d ? 'line-through' : 'none', flip: function () { var n = Object.assign({}, self.state.done); n[k.id] = !n[k.id]; self.setState({ done: n }); } });
+    });
+    var words = MD.filter(function (l) { return l.indexOf('```') !== 0 && CODE.indexOf(l) < 0; }).join(' ').replace(/[#*>`|\-\[\]()]/g, ' ').split(/\s+/).filter(function (w) { return /[a-zA-Z]/.test(w); }).length;
+    var serif = this.props.docFont === 'serif';
+    return {
+      t: t, skinId: skinId, views: views, formats: formats, v: v, outline: outline, bubble: bubble, slash: slash, tasks: tasks, words: words,
+      showBubble: overlay === 'bubble' && view !== 'source',
+      showSlash: overlay === 'slash',
+      showLink: overlay === 'link',
+      tbOpacity: view === 'source' ? 0.45 : 1,
+      docFont: serif ? "'Newsreader', Georgia, serif" : t.font,
+      headFont: t.font,
+      code: CODE.map(function (l) { return { segs: tsLine(l, t) }; }),
+      src: format === 'html' ? htmlLines(t) : mdLines(t),
+      formatName: format === 'html' ? 'HTML' : 'Markdown',
+      fmtBadge: format === 'html' ? 'text/html' : 'CommonMark + GFM',
+      fmtIcon: format === 'html' ? ICON.html : ICON.markdown,
+      yes: true
+    };
+  }
+}
+</script>
+</body>
+</html>

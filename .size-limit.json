@@ -122,5 +122,20 @@
       "@sigx/runtime-core",
       "@sigx/runtime-dom"
     ]
+  },
+  {
+    "name": "@sigx/richtext-zero",
+    "path": "packages/richtext-zero/dist/index.prod.js",
+    "limit": "12 KB",
+    "ignore": [
+      "@sigx/richtext",
+      "@sigx/richtext/editor",
+      "@sigx/richtext/editor/dom",
+      "@sigx/zero",
+      "@sigx/reactivity",
+      "@sigx/runtime-core",
+      "@sigx/runtime-dom",
+      "sigx"
+    ]
   }
 ]

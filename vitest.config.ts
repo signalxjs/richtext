@@ -43,6 +43,7 @@ export default defineConfig({
             { find: /^@sigx\/richtext-markdown$/, replacement: resolve(__dirname, 'packages/richtext-markdown/src/index.ts') },
             { find: '@sigx/richtext-html/editor', replacement: resolve(__dirname, 'packages/richtext-html/src/editor/index.ts') },
             { find: /^@sigx\/richtext-html$/, replacement: resolve(__dirname, 'packages/richtext-html/src/index.ts') },
+            { find: /^@sigx\/richtext-zero$/, replacement: resolve(__dirname, 'packages/richtext-zero/src/index.ts') },
             { find: /^@sigx\/richtext-shiki$/, replacement: resolve(__dirname, 'packages/richtext-shiki/src/index.ts') },
             { find: /^@sigx\/richtext$/, replacement: resolve(__dirname, 'packages/richtext/src/index.ts') }
         ]

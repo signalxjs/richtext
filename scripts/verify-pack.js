@@ -32,7 +32,7 @@ import { tmpdir } from 'os';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 
-const PACKAGES = ['packages/richtext', 'packages/richtext-markdown', 'packages/richtext-html', 'packages/richtext-shiki'];
+const PACKAGES = ['packages/richtext', 'packages/richtext-markdown', 'packages/richtext-html', 'packages/richtext-shiki', 'packages/richtext-zero'];
 
 /** Every runtime entry the tarballs expose, imported one by one. */
 const ENTRIES = [
@@ -47,6 +47,13 @@ const ENTRIES = [
     '@sigx/richtext-html/editor',
     '@sigx/richtext-shiki',
 ];
+
+/**
+ * Entries whose package has required peers beyond the core runtime. They are
+ * imported in a second pass, after those peers are installed, so the first
+ * pass keeps proving every other entry loads on the core runtime alone.
+ */
+const PEERED_ENTRIES = [{ entry: '@sigx/richtext-zero', pkg: 'packages/richtext-zero', peers: ['@sigx/zero', 'sigx', '@sigx/runtime-dom'] }];
 
 const sandbox = join(tmpdir(), `sigx-richtext-verify-pack-${Date.now()}`);
 const tarballDir = join(sandbox, 'tarballs');
@@ -141,19 +148,22 @@ function main() {
     };
     writeFileSync(join(appDir, 'package.json'), JSON.stringify(appPkg, null, 2));
 
-    writeFileSync(
-        join(appDir, 'smoke.mjs'),
-        [
-            `const entries = ${JSON.stringify(ENTRIES)};`,
-            'for (const entry of entries) {',
-            '    const mod = await import(entry);',
-            '    const keys = Object.keys(mod);',
-            "    if (keys.length === 0) throw new Error(entry + ' exports no named bindings');",
-            "    console.log('ok ' + entry + ':', keys.join(', '));",
-            '}',
-            '',
-        ].join('\n')
-    );
+    const smoke = (file, entries) =>
+        writeFileSync(
+            join(appDir, file),
+            [
+                `const entries = ${JSON.stringify(entries)};`,
+                'for (const entry of entries) {',
+                '    const mod = await import(entry);',
+                '    const keys = Object.keys(mod);',
+                "    if (keys.length === 0) throw new Error(entry + ' exports no named bindings');",
+                "    console.log('ok ' + entry + ':', keys.join(', '));",
+                '}',
+                '',
+            ].join('\n')
+        );
+    smoke('smoke.mjs', ENTRIES);
+    smoke('smoke-peered.mjs', PEERED_ENTRIES.map((p) => p.entry));
 
     step('Install scratch app (npm — to avoid pnpm workspace hoisting interference)');
     run('npm install --no-audit --no-fund --legacy-peer-deps --loglevel=error', { cwd: appDir });
@@ -163,6 +173,21 @@ function main() {
 
     step('Run import smoke (production condition)');
     run('node --conditions production smoke.mjs', { cwd: appDir });
+
+    step("Install the peered entries' own peers");
+    const peers = new Set();
+    for (const p of PEERED_ENTRIES) {
+        const declared = readJson(join(rootDir, p.pkg, 'package.json')).peerDependencies ?? {};
+        for (const name of p.peers) {
+            if (!declared[name]) throw new Error(`${p.pkg}/package.json declares no peer on ${name}`);
+            peers.add(JSON.stringify(`${name}@${declared[name]}`));
+        }
+    }
+    run(`npm install --no-save --no-audit --no-fund --legacy-peer-deps --loglevel=error ${[...peers].join(' ')}`, { cwd: appDir });
+
+    step('Run import smoke for the peered entries (dev and production conditions)');
+    run('node smoke-peered.mjs', { cwd: appDir });
+    run('node --conditions production smoke-peered.mjs', { cwd: appDir });
 
     step('Pack smoke test passed');
 }

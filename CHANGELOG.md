@@ -8,6 +8,27 @@ workspace shares one version line.
 
 ### Added
 
+- **`@sigx/richtext-zero`** (#82), a new package: the editor drawn with
+  `@sigx/zero` components and styled by whichever `@sigx/zero-*` design
+  system the app loads.
+  - `ZeroRichTextEditor` wraps `RichTextEditor`. It adds a rich / split /
+    source view switch and a Markdown / HTML format switch (zero
+    `ToggleGroup`s), a read-only source pane with line numbers and
+    highlighting, and a status bar.
+  - The toolbar is zero `Toggle`s and `Button`s with icons in `Tooltip`s
+    with `Kbd` shortcuts, plus a block-type `Select`, and it keeps the
+    core's roving tab stop. The slash menu, @mentions, the block menu and the
+    link popover (a zero `Input` and `Button`s) are drawn through the core's
+    skin hooks.
+  - The renderers work on a plain `RichTextEditor` too. The package also has
+    a local icon set keyed by `ToolbarItem.icon` and a layout stylesheet at
+    `@sigx/richtext-zero/css`.
+  - The playground's "Zero editor" pane switches between the basic and
+    daisyUI skins at runtime.
+- `verify:pack` imports entries whose package needs peers beyond the core
+  runtime (`@sigx/richtext-zero`) in a second pass, after installing those
+  peers.
+
 - **Marks toggle at a caret** (#80), as in ProseMirror, Google Docs and
   Notion. Bold, italic, strike or inline code with no selection, from the
   toolbar or the keyboard, now turns the mark on or off for the text typed

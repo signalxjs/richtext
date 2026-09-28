@@ -25,7 +25,9 @@
             "@sigx/richtext-markdown/editor": ["../../packages/richtext-markdown/src/editor/index.ts"],
             "@sigx/richtext-html": ["../../packages/richtext-html/src/index.ts"],
             "@sigx/richtext-html/editor": ["../../packages/richtext-html/src/editor/index.ts"],
-            "@sigx/richtext-shiki": ["../../packages/richtext-shiki/src/index.ts"]
+            "@sigx/richtext-shiki": ["../../packages/richtext-shiki/src/index.ts"],
+            "@sigx/richtext-zero": ["../../packages/richtext-zero/src/index.ts"],
+            "@sigx/richtext-zero/css": ["../../packages/richtext-zero/src/css.d.ts"]
         }
     },
     // `env.d.ts` from the package source declares `__DEV__`, the

@@ -40,6 +40,7 @@ const PACKAGES = [
     'packages/richtext-markdown',
     'packages/richtext-html',
     'packages/richtext-shiki',
+    'packages/richtext-zero',
 ];
 
 const args = process.argv.slice(2);

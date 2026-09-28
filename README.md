@@ -29,6 +29,7 @@ Full guides, API reference and live examples → **<https://sigx.dev/richtext/>*
 | [`@sigx/richtext-markdown`](./packages/richtext-markdown) | Markdown as a format: the CommonMark + GFM parser, `markdownFormat`, `toMarkdown`, the markdown syntax-extension contract for plugins, `markdownPreset` (`./editor`) |
 | [`@sigx/richtext-html`](./packages/richtext-html) | HTML as a format: a platform-free parser for pasted and generated markup, a serializer with the CommonMark reference layout, `htmlFormat`, the HTML syntax-extension contract for plugins and `htmlPreset` (`./editor`, the `text/html` clipboard flavour) |
 | [`@sigx/richtext-shiki`](./packages/richtext-shiki) | Shiki highlighting as a plugin: `shikiPlugin()` / `createShikiHighlighter()` (the only package that imports `shiki`) |
+| [`@sigx/richtext-zero`](./packages/richtext-zero) | A finished editor drawn with `@sigx/zero` components, styled by whichever `@sigx/zero-*` design system the app loads: `ZeroRichTextEditor` with a toolbar, a floating toolbar, zero-drawn menus and link popover, and a rich / split / source view switch (the only package that imports `@sigx/zero`) |
 
 Examples: [`examples/playground`](./examples/playground) — the view, streaming, plugins, Shiki, the serializer and the editor side by side, with a Playwright suite.
 

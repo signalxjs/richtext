@@ -204,7 +204,7 @@ export const insertText =
         }
         const flat = inlineFlat(state, key, ctx);
         if (!flat) return false;
-        const marks = marksAt(flat, from, to, ctx.schema);
+        const marks = from === to && state.storedMarks ? [...state.storedMarks] : marksAt(flat, from, to, ctx.schema);
         // A mark that carries attrs (a link) is inherited only when text is replaced, never extended from a caret.
         const slice: InlineFlat = {
             text,
@@ -218,10 +218,17 @@ export const insertText =
         dispatch?.({
             steps: [{ type: 'replaceInline', key, from, to, slice }],
             selection: textSelection(key, from + text.length),
+            // Stored marks hold while typing continues at the caret.
+            ...(from === to && state.storedMarks ? { storedMarks: state.storedMarks } : {}),
             meta: meta({ group: opts.group ?? 'typing', origin: opts.origin ?? 'command' }),
         });
         return true;
     };
+
+/** The marks a caret inherits (those that carry no attrs: a link is never stored). */
+export function caretMarks(flat: InlineFlat, offset: number, ctx: CommandContext): string[] {
+    return marksAt(flat, offset, offset, ctx.schema).filter((m) => !flat.spans.find((s) => s.type === m && s.start < offset && s.end >= offset)?.attrs);
+}
 
 /** Replace `[from, to)` of a block with a flat slice (paste, chips, plugin insertions). */
 export const replaceRange =
@@ -244,9 +251,16 @@ export const toggleMark =
         const sel = textSel(state);
         if (!sel) return false;
         const { from, to } = selectionRange(sel);
-        if (from === to) return false;
         const flat = inlineFlat(state, sel.anchor.key, ctx);
         if (!flat) return false;
+        if (from === to) {
+            // A caret: toggle the mark for the text typed next (stored marks). Marks with attrs (links) need a range.
+            if (attrs && Object.keys(attrs).length) return false;
+            const current = state.storedMarks ?? caretMarks(flat, from, ctx);
+            const storedMarks = current.includes(type) ? current.filter((m) => m !== type) : [...current, type];
+            dispatch?.({ steps: [], selection: sel, storedMarks, meta: meta({ addToHistory: false }) });
+            return true;
+        }
         const next = toggleFlatMark(flat, type, from, to, attrs);
         dispatch?.({ steps: [{ type: 'setInline', key: sel.anchor.key, flat: next }], selection: sel, meta: meta() });
         return true;

@@ -41,6 +41,8 @@ export interface BridgeHost {
     /** Current value of a code block. */
     valueOf(key: string): string | null;
     focused(key: string | null): void;
+    /** The editor's stored marks (for text typed next at a caret); hosts without them omit it. */
+    storedMarks?(): readonly string[] | null;
 }
 
 /** Compute the minimal `replaceInline` between two flat models (common prefix/suffix on the text; spans from the new model). */
@@ -101,12 +103,26 @@ export function createInlineBridge(key: string, host: BridgeHost): InlineBridge 
             // A whole-content replacement (mark toggles, IME commits) is a setInline; a local edit stays a replaceInline so history can group it.
             steps = d.from === 0 && d.to === prev.text.length && d.insert.text === e.flat.text ? [{ type: 'setInline', key, flat: e.flat }] : [{ type: 'replaceInline', key, from: d.from, to: d.to, slice: d.insert }];
         }
+        // Stored marks (a mark toggled at the caret) decide the marks of typed text: the surface
+        // rendered it with the marks around it, so the result is pushed back to it (origin command).
+        let origin: 'surface' | 'command' = 'surface';
+        const stored = !e.composing && !endingComposition ? host.storedMarks?.() : null;
+        const step = steps[0];
+        if (stored && steps.length === 1 && step.type === 'replaceInline' && step.slice.text) {
+            const len = step.slice.text.length;
+            const kept = step.slice.spans.filter((s) => host.schema.role(s.type) !== 'mark' || (s.attrs && Object.keys(s.attrs).length));
+            steps = [{ ...step, slice: { text: step.slice.text, spans: [...kept, ...stored.map((type) => ({ start: 0, end: len, type }))] } }];
+            origin = 'command';
+        }
         host.dispatch({
             steps,
             selection: e.selection ? selection : undefined,
             composing: e.composing,
+            // They hold while typing continues at the caret (a browser decides for itself whether the caret after a
+            // mark types inside it); moving the caret clears them.
+            ...(origin === 'command' ? { storedMarks: stored } : {}),
             // The commit that ends a composition joins the open `ime` group, so the whole composition is one undo.
-            meta: { origin: 'surface', sourceKey: key, group: e.composing || endingComposition ? 'ime' : 'typing', composing: e.composing },
+            meta: { origin, sourceKey: key, group: e.composing || endingComposition ? 'ime' : 'typing', composing: e.composing },
         });
     };
 

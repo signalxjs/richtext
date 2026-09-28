@@ -6,6 +6,25 @@ workspace shares one version line.
 
 ## [Unreleased]
 
+### Added
+
+- **Marks toggle at a caret** (#80), as in ProseMirror, Google Docs and
+  Notion. Bold, italic, strike or inline code with no selection, from the
+  toolbar or the keyboard, now turns the mark on or off for the text typed
+  next.
+  - New `EditorState.storedMarks`, which a transaction can set
+    (`Transaction.storedMarks`). It holds while typing continues at the caret
+    and clears when the caret moves.
+  - `insertText` and the inline bridge apply it to typed text. The bridge
+    pushes the result back to the surface, since the browser renders its own
+    guess.
+  - The toolbar's active marks at a caret reflect it.
+  - `BridgeHost.storedMarks?()` lets a host supply it. Hosts that don't keep
+    the old behaviour.
+- **`toggleHeading(depth)`** (#80). A heading of that depth goes back to a
+  paragraph. The toolbar's H1–H3 buttons and Mod-Alt-1…6 use it (new registry
+  names `toggleHeading1…6`); `setHeadingN` still only sets.
+
 ## [0.5.0] - 2026-09-27
 
 ### Added

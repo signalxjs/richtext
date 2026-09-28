@@ -129,6 +129,8 @@ function activeMarksOf(state: EditorState, ctx: CommandContext): string[] {
     }
     const entry = state.index().get(sel.anchor.key);
     if (!entry || ctx.schema.role(entry.node.type) !== 'textblock') return [];
+    // A caret with stored marks: what the next keystroke gets.
+    if (state.storedMarks && sel.anchor.offset === sel.head.offset) return [...state.storedMarks];
     const { from, to } = selectionRange(sel);
     return marksAt(flatOf(entry.node, ctx), from, to, ctx.schema);
 }
@@ -209,9 +211,9 @@ export const defaultToolbarItems: ToolbarItem[] = [
         isEnabled: inText,
         run: (tc) => (tc.ui?.openLinkEditor ? tc.ui.openLinkEditor() : void tc.run(activeMarksOf(tc.state, tc.ctx).includes('link') ? commands.unsetLink : setLink('https://'))),
     },
-    { id: 'h1', label: 'H1', icon: 'heading-1', group: 'block', isActive: headingActive(1), isEnabled: hasSelection, run: (tc) => void tc.run(commands.setHeading1) },
-    { id: 'h2', label: 'H2', icon: 'heading-2', group: 'block', isActive: headingActive(2), isEnabled: hasSelection, run: (tc) => void tc.run(commands.setHeading2) },
-    { id: 'h3', label: 'H3', icon: 'heading-3', group: 'block', isActive: headingActive(3), isEnabled: hasSelection, run: (tc) => void tc.run(commands.setHeading3) },
+    { id: 'h1', label: 'H1', icon: 'heading-1', group: 'block', isActive: headingActive(1), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading1) },
+    { id: 'h2', label: 'H2', icon: 'heading-2', group: 'block', isActive: headingActive(2), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading2) },
+    { id: 'h3', label: 'H3', icon: 'heading-3', group: 'block', isActive: headingActive(3), isEnabled: hasSelection, run: (tc) => void tc.run(commands.toggleHeading3) },
     { id: 'paragraph', label: '¶', icon: 'pilcrow', group: 'block', isActive: (tb) => tb.blockType === 'paragraph', isEnabled: hasSelection, run: (tc) => void tc.run(commands.setParagraph) },
     listItem('bullet', '•', 'list', 'bullet'),
     listItem('ordered', '1.', 'list-ordered', 'ordered'),

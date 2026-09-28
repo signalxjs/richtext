@@ -28,6 +28,7 @@ function host(editor: Editor): BridgeHost {
         schema: editor.schema,
         valueOf: editor.valueOf,
         focused: editor.focused,
+        storedMarks: () => editor.state.storedMarks,
     };
 }
 
@@ -310,3 +311,46 @@ describe('diffFlat', () => {
         expect(diffFlat({ text: 'aa', spans: [] }, { text: 'aXa', spans: [{ start: 1, end: 2, type: 'emphasis' }] })).toEqual({ from: 1, to: 1, insert: { text: 'X', spans: [{ start: 0, end: 1, type: 'emphasis' }] } });
     });
 });
+
+describe('stored marks (#80)', () => {
+    it('a mark toggled at a caret applies to the text typed next through a surface, and shows in the surface', () => {
+        const e = make('hello');
+        const s = mount(e, 'b-0');
+        s.focus({ offset: 5 });
+        e.setSelection(textSelection('b-0', 5));
+        expect(e.run('toggleStrong')).toBe(true);
+        expect(e.state.storedMarks).toEqual(['strong']);
+        s.type('X');
+        expect(md(e)).toBe('hello**X**\n');
+        // The surface was told: it shows the mark it did not render itself.
+        expect(s.getFlat().spans).toEqual([{ start: 5, end: 6, type: 'strong' }]);
+        // They hold while typing continues at the caret, whatever the surface does after the mark…
+        expect(e.state.storedMarks).toEqual(['strong']);
+        s.type('Y');
+        expect(md(e)).toBe('hello**XY**\n');
+        // …and moving the caret clears them.
+        e.setSelection(textSelection('b-0', 1));
+        expect(e.state.storedMarks).toBeNull();
+    });
+
+    it('toggling off at a caret inside a mark types plain text', () => {
+        const e = make('**bold**');
+        const s = mount(e, 'b-0');
+        s.focus({ offset: 4 });
+        e.setSelection(textSelection('b-0', 4));
+        e.run('toggleStrong');
+        expect(e.state.storedMarks).toEqual([]);
+        s.type('X');
+        expect(md(e)).toBe('**bold**X\n');
+    });
+
+    it('a selection change or an edit clears them', () => {
+        const e = make('hello');
+        e.setSelection(textSelection('b-0', 2));
+        e.run('toggleEmphasis');
+        expect(e.state.storedMarks).toEqual(['emphasis']);
+        e.setSelection(textSelection('b-0', 3));
+        expect(e.state.storedMarks).toBeNull();
+    });
+});
+

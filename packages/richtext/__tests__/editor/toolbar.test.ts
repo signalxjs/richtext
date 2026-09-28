@@ -106,6 +106,19 @@ describe('toolbarState', () => {
     });
 });
 
+describe('stored marks in the toolbar (#80)', () => {
+    it('a caret with stored marks reports them as active; the heading items toggle', () => {
+        const h = harness('hello', at('b-0', 5));
+        by.bold.run(h.tc);
+        expect(h.tb().activeMarks).toEqual(['strong']);
+        expect(by.bold.isActive!(h.tb())).toBe(true);
+        by.h1.run(h.tc);
+        expect(h.md()).toBe('# hello\n');
+        by.h1.run(h.tc);
+        expect(h.md()).toBe('hello\n');
+    });
+});
+
 describe('defaultToolbarItems', () => {
     it('is the documented item set, grouped', () => {
         expect(defaultToolbarItems.map((i) => i.id)).toEqual(['bold', 'italic', 'strike', 'code', 'link', 'h1', 'h2', 'h3', 'paragraph', 'bullet', 'ordered', 'task', 'quote', 'codeBlock', 'hr', 'table', 'undo', 'redo']);

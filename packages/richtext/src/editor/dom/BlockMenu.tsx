@@ -3,42 +3,60 @@
  * another type, move it, duplicate it, delete it; on a table, add and
  * delete rows and columns and align the column. `role="menu"` with roving
  * focus; Escape or an outside pointer-down closes it and focus returns to
- * the editor.
+ * the editor. A skin draws the items with `renderItem`, spreading
+ * `info.attrs` (`role="menuitem"`, which the roving focus finds) onto a
+ * `<button>`; the menu keeps its root, placement and keyboard.
  */
 
-import { component, type JSXElement } from '@sigx/runtime-core';
+import { component, type Define, type JSXElement } from '@sigx/runtime-core';
 import type {} from '@sigx/runtime-dom';
 import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp, selectBlock, type Command } from '../commands.js';
 import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, setColumnAlign } from '../commands-standard.js';
 import { turnIntoCommand } from '../menu.js';
 import { textSelection } from '../state.js';
-import { blockMenuPart } from './anatomy.js';
+import { blockMenuPart, type ScopedPartAttrs } from './anatomy.js';
 import { useEditorView } from './context.js';
 import { track } from './context.js';
 import { anchoredPosition, onDismiss, roveList } from './popup.js';
 
-interface MenuAction {
+/** A block menu entry. `group` is the section it sits in. */
+export interface BlockMenuItem {
     id: string;
     label: string;
     icon?: string;
+    group: 'turn' | 'table' | 'block';
+}
+
+/** What the menu hands a skin for one item. */
+export interface BlockMenuItemInfo {
+    run: () => void;
+    /** Spread onto the item's `<button>`. */
+    attrs: ScopedPartAttrs & { key: string; type: 'button'; role: 'menuitem'; 'data-action': string; 'data-icon': string | undefined; tabIndex: number; onClick: () => void };
+}
+
+export type BlockMenuRenderItem = (item: BlockMenuItem, info: BlockMenuItemInfo) => JSXElement;
+
+export type BlockMenuProps = Define.Prop<'renderItem', BlockMenuRenderItem>;
+
+interface MenuAction extends BlockMenuItem {
     command: Command;
     /** A table action: runs with the caret in a cell of the menu's table instead of on the block selection. */
     cell?: boolean;
 }
 
 const TABLE_ACTIONS: MenuAction[] = [
-    { id: 'table:addRowBefore', label: 'Add row above', icon: 'row-insert-top', command: addRowBefore, cell: true },
-    { id: 'table:addRowAfter', label: 'Add row below', icon: 'row-insert-bottom', command: addRowAfter, cell: true },
-    { id: 'table:addColumnBefore', label: 'Add column left', icon: 'column-insert-left', command: addColumnBefore, cell: true },
-    { id: 'table:addColumnAfter', label: 'Add column right', icon: 'column-insert-right', command: addColumnAfter, cell: true },
-    { id: 'table:deleteRow', label: 'Delete row', icon: 'row-remove', command: deleteRow, cell: true },
-    { id: 'table:deleteColumn', label: 'Delete column', icon: 'column-remove', command: deleteColumn, cell: true },
-    { id: 'table:alignLeft', label: 'Align column left', icon: 'align-left', command: setColumnAlign('left'), cell: true },
-    { id: 'table:alignCenter', label: 'Align column center', icon: 'align-center', command: setColumnAlign('center'), cell: true },
-    { id: 'table:alignRight', label: 'Align column right', icon: 'align-right', command: setColumnAlign('right'), cell: true },
+    { id: 'table:addRowBefore', label: 'Add row above', icon: 'row-insert-top', group: 'table', command: addRowBefore, cell: true },
+    { id: 'table:addRowAfter', label: 'Add row below', icon: 'row-insert-bottom', group: 'table', command: addRowAfter, cell: true },
+    { id: 'table:addColumnBefore', label: 'Add column left', icon: 'column-insert-left', group: 'table', command: addColumnBefore, cell: true },
+    { id: 'table:addColumnAfter', label: 'Add column right', icon: 'column-insert-right', group: 'table', command: addColumnAfter, cell: true },
+    { id: 'table:deleteRow', label: 'Delete row', icon: 'row-remove', group: 'table', command: deleteRow, cell: true },
+    { id: 'table:deleteColumn', label: 'Delete column', icon: 'column-remove', group: 'table', command: deleteColumn, cell: true },
+    { id: 'table:alignLeft', label: 'Align column left', icon: 'align-left', group: 'table', command: setColumnAlign('left'), cell: true },
+    { id: 'table:alignCenter', label: 'Align column center', icon: 'align-center', group: 'table', command: setColumnAlign('center'), cell: true },
+    { id: 'table:alignRight', label: 'Align column right', icon: 'align-right', group: 'table', command: setColumnAlign('right'), cell: true },
 ];
 
-export const BlockMenu = component(({ onUnmounted }) => {
+export const BlockMenu = component<BlockMenuProps>(({ props, onUnmounted }) => {
     const view = useEditorView();
     const { editor } = view;
     let el: HTMLElement | null = null;
@@ -113,20 +131,20 @@ export const BlockMenu = component(({ onUnmounted }) => {
             .menu()
             .filter((spec) => spec.type !== entry.node.type && spec.type !== 'table' && spec.type !== 'thematicBreak')
             .filter((spec) => role === 'textblock' || role === 'code' || spec.role === 'textblock')
-            .map((spec) => ({ id: `turn:${spec.type}`, label: spec.menu!.label, icon: spec.menu!.icon, command: turnIntoCommand(spec) }));
+            .map((spec) => ({ id: `turn:${spec.type}`, label: spec.menu!.label, icon: spec.menu!.icon, group: 'turn', command: turnIntoCommand(spec) }));
         const actions: MenuAction[] = [
-            { id: 'moveUp', label: 'Move up', icon: 'arrow-up', command: moveBlockUp },
-            { id: 'moveDown', label: 'Move down', icon: 'arrow-down', command: moveBlockDown },
-            { id: 'duplicate', label: 'Duplicate', icon: 'copy', command: duplicateBlock },
-            { id: 'delete', label: 'Delete', icon: 'trash', command: deleteBlock },
+            { id: 'moveUp', group: 'block', label: 'Move up', icon: 'arrow-up', command: moveBlockUp },
+            { id: 'moveDown', group: 'block', label: 'Move down', icon: 'arrow-down', command: moveBlockDown },
+            { id: 'duplicate', group: 'block', label: 'Duplicate', icon: 'copy', command: duplicateBlock },
+            { id: 'delete', group: 'block', label: 'Delete', icon: 'trash', command: deleteBlock },
         ];
         const table = role === 'table' ? TABLE_ACTIONS : [];
         const pos = anchoredPosition(req.anchor, root, table.length ? 520 : 280);
-        const item = (a: MenuAction): JSXElement => (
-            <button key={a.id} {...blockMenuPart('item')} type="button" role="menuitem" data-action={a.id} data-icon={a.icon} tabIndex={-1} onClick={() => run(a)}>
-                {a.label}
-            </button>
-        );
+        const item = (a: MenuAction): JSXElement => {
+            const attrs: BlockMenuItemInfo['attrs'] = { key: a.id, ...blockMenuPart('item'), type: 'button', role: 'menuitem', 'data-action': a.id, 'data-icon': a.icon, tabIndex: -1, onClick: () => run(a) };
+            if (props.renderItem) return props.renderItem({ id: a.id, label: a.label, icon: a.icon, group: a.group }, { run: attrs.onClick, attrs });
+            return <button {...attrs}>{a.label}</button>;
+        };
         return (
             <div {...blockMenuPart('root')} role="menu" aria-label="Block options" data-state="open" style={`position:absolute;left:${pos.left}px;top:${pos.top}px`} ref={attach} onKeyDown={onKeydown}>
                 {turnInto.length ? (

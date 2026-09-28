@@ -11,16 +11,43 @@
  *   across blocks it links every block's text.
  *
  * Positioned under the selection inside the editor root (scope `richtext-link`).
+ * A skin draws the body with `render`: the popover keeps the root, its
+ * placement, Enter / Escape, the outside click and `sanitizeUrl`.
  */
 
-import { component, type JSXElement } from '@sigx/runtime-core';
+import { component, type Define, type JSXElement } from '@sigx/runtime-core';
 import type {} from '@sigx/runtime-dom';
 import { sanitizeUrl } from '../../render/index.js';
 import { linkAt, setLink, unsetLink } from '../commands-standard.js';
-import { flag, linkPart } from './anatomy.js';
+import { flag, linkPart, type ScopedPartAttrs } from './anatomy.js';
 import { useEditorView, type EditorView } from './context.js';
 import { track } from './context.js';
 import { selectionBox } from './popup.js';
+
+/** What the popover hands a skin's `render`. */
+export interface LinkPopoverInfo {
+    mode: 'edit' | 'view';
+    /** The link under the caret (`null` when the form adds a new one). */
+    link: { url: string; title?: string } | null;
+    /** View mode: the sanitised URL to open, `undefined` when its scheme is rejected. */
+    href: string | undefined;
+    readOnly: boolean;
+    /** Edit mode: link the selection to `url` (default: the form's `<input>` value); an empty URL unlinks. */
+    apply(url?: string): void;
+    remove(): void;
+    /** View mode: open the form. */
+    edit(): void;
+    /** Edit mode: close the form and give the text its focus back. */
+    cancel(): void;
+    /** Edit mode: spread onto the URL `<input>` (it is focused on open and read by `apply()`). */
+    inputAttrs: ScopedPartAttrs & { type: 'url'; value: string; placeholder: string; 'aria-label': string; spellCheck: false; ref: (el: HTMLInputElement | null) => void };
+    /** View mode: spread onto buttons so a press keeps the caret in the text. */
+    buttonAttrs: { onPointerDown: (e: PointerEvent) => void };
+}
+
+export type LinkPopoverRender = (info: LinkPopoverInfo) => JSXElement;
+
+export type LinkPopoverProps = Define.Prop<'render', LinkPopoverRender>;
 
 interface Place {
     left: number;
@@ -37,7 +64,7 @@ function placeUnderSelection(view: EditorView): Place | null {
     return box ? { left: box.left, top: box.bottom + 4 } : { left: 0, top: 0 };
 }
 
-export const LinkPopover = component(({ onUnmounted }) => {
+export const LinkPopover = component<LinkPopoverProps>(({ props, onUnmounted }) => {
     const view = useEditorView();
     const { editor } = view;
     let dispose: (() => void) | null = null;
@@ -50,8 +77,8 @@ export const LinkPopover = component(({ onUnmounted }) => {
         view.restoreSelection();
     };
 
-    const apply = (): void => {
-        const url = (input?.value ?? '').trim();
+    const apply = (value?: string): void => {
+        const url = (value ?? input?.value ?? '').trim();
         const current = linkAt(editor.state, editor.ctx);
         view.closeLinkEditor();
         if (url) editor.run(setLink(url, current?.title));
@@ -69,6 +96,10 @@ export const LinkPopover = component(({ onUnmounted }) => {
         dispose?.();
         dispose = null;
         if (!node) return;
+        // A skin's field may not forward `ref`: fall back to the form's first input.
+        queueMicrotask(() => {
+            if (!input?.isConnected) input = node.querySelector('input');
+        });
         // An outside click closes the form and leaves focus where the click put it (Escape is the field's: it restores focus).
         const d = node.ownerDocument;
         const onOutside = (e: PointerEvent): void => {
@@ -84,6 +115,7 @@ export const LinkPopover = component(({ onUnmounted }) => {
     };
 
     const onKeydown = (e: KeyboardEvent): void => {
+        if ((e.target as Element | null)?.tagName !== 'INPUT') return;
         if (e.key === 'Enter') {
             e.preventDefault();
             apply();
@@ -96,6 +128,29 @@ export const LinkPopover = component(({ onUnmounted }) => {
 
     // Buttons in the view bubble keep the caret in the text.
     const keepCaret = (e: PointerEvent): void => e.preventDefault();
+
+    const inputAttrsFor = (link: LinkPopoverInfo['link']): LinkPopoverInfo['inputAttrs'] => ({
+        ...linkPart('input'),
+        type: 'url',
+        value: link?.url ?? '',
+        placeholder: 'Paste or type a link',
+        'aria-label': 'Link URL',
+        spellCheck: false,
+        ref: (el: HTMLInputElement | null) => (input = el),
+    });
+
+    const info = (mode: 'edit' | 'view', link: LinkPopoverInfo['link'], href: string | undefined): LinkPopoverInfo => ({
+        mode,
+        link,
+        href,
+        readOnly: view.readOnly(),
+        apply,
+        remove,
+        edit: () => view.openLinkEditor(),
+        cancel,
+        inputAttrs: inputAttrsFor(link),
+        buttonAttrs: { onPointerDown: keepCaret },
+    });
 
     onUnmounted(() => dispose?.());
 
@@ -110,28 +165,25 @@ export const LinkPopover = component(({ onUnmounted }) => {
         if (editing) {
             formPlace ??= placeUnderSelection(view);
             const pos = formPlace!;
-            return (
-                <div {...linkPart('root')} data-mode="edit" data-state="open" style={`position:absolute;left:${pos.left}px;top:${pos.top}px`} ref={attachForm}>
-                    <div {...linkPart('form')} role="group" aria-label="Link">
-                        <input
-                            {...linkPart('input')}
-                            type="url"
-                            value={link?.url ?? ''}
-                            placeholder="Paste or type a link"
-                            aria-label="Link URL"
-                            spellCheck={false}
-                            ref={(el: HTMLInputElement | null) => (input = el)}
-                            onKeyDown={onKeydown}
-                        />
-                        <button {...linkPart('apply')} type="button" onClick={apply}>
-                            Apply
+            const inputAttrs = inputAttrsFor(link);
+            const body = props.render ? (
+                props.render(info('edit', link, undefined))
+            ) : (
+                <div {...linkPart('form')} role="group" aria-label="Link">
+                    <input {...inputAttrs} />
+                    <button {...linkPart('apply')} type="button" onClick={() => apply()}>
+                        Apply
+                    </button>
+                    {link ? (
+                        <button {...linkPart('remove')} type="button" onClick={remove}>
+                            Remove
                         </button>
-                        {link ? (
-                            <button {...linkPart('remove')} type="button" onClick={remove}>
-                                Remove
-                            </button>
-                        ) : null}
-                    </div>
+                    ) : null}
+                </div>
+            );
+            return (
+                <div {...linkPart('root')} data-mode="edit" data-state="open" style={`position:absolute;left:${pos.left}px;top:${pos.top}px`} ref={attachForm} onKeyDown={onKeydown}>
+                    {body}
                 </div>
             );
         }
@@ -141,8 +193,10 @@ export const LinkPopover = component(({ onUnmounted }) => {
         // A rejected scheme sanitises to '#': show the URL, never link it.
         const sanitized = sanitizeUrl(link.url, 'link');
         const href = sanitized && (sanitized !== '#' || link.url.trim() === '#') ? sanitized : undefined;
-        return (
-            <div {...linkPart('root')} data-mode="view" data-state="open" data-readonly={flag(view.readOnly())} style={`position:absolute;left:${pos.left}px;top:${pos.top}px`}>
+        const body = props.render ? (
+            props.render(info('view', link, href))
+        ) : (
+            <>
                 <a {...linkPart('url')} href={href} target="_blank" rel="noopener noreferrer" title={link.title}>
                     {link.url}
                 </a>
@@ -156,6 +210,11 @@ export const LinkPopover = component(({ onUnmounted }) => {
                         </button>
                     </>
                 )}
+            </>
+        );
+        return (
+            <div {...linkPart('root')} data-mode="view" data-state="open" data-readonly={flag(view.readOnly())} style={`position:absolute;left:${pos.left}px;top:${pos.top}px`}>
+                {body}
             </div>
         );
     };

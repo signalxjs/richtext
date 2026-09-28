@@ -24,6 +24,28 @@ workspace shares one version line.
 - **`toggleHeading(depth)`** (#80). A heading of that depth goes back to a
   paragraph. The toolbar's H1–H3 buttons and Mod-Alt-1…6 use it (new registry
   names `toggleHeading1…6`); `setHeadingN` still only sets.
+- **Skin hooks on the DOM editor** (#83), so a design system can draw the
+  editor's chrome (the groundwork for `@sigx/richtext-zero`, #82).
+  - `renderToolbarGroup(group, children)` draws both toolbars' groups (to
+    add separators, for example). `toolbarLabel` names the main toolbar.
+  - `renderLinkPopover(info)` draws the link popover's body. The popover keeps
+    its placement, Enter / Escape, the outside click and `sanitizeUrl`, and
+    `info.apply(url?)` / `remove` / `edit` / `cancel` drive it.
+  - `renderBlockMenuItem(item, info)` draws the block menu's items. The menu
+    keeps its root, focus and keyboard.
+  - `ToolbarItem.shortcut` holds the key name that runs the same command.
+    Every default item with a binding carries one (Mod-k for the link).
+  - `formatKeyName(name, platform)` in `./editor` spells a key name for
+    display, one entry per key.
+
+### Changed
+
+- **`renderToolbarItem(item, info)`** (#83) replaces
+  `renderToolbarItem(item, tb, run)`. `info` holds `tb`, `run`, `enabled`,
+  `active` and the `attrs` a skin spreads onto its `<button>`: `data-item`,
+  `tabIndex`, `disabled`, `data-state` and the `pointerdown` cancel. A
+  skin's item therefore keeps the roving tab stop and the caret without
+  re-deriving them. The arrow keys move across `button[data-item]`.
 
 ## [0.5.0] - 2026-09-27
 

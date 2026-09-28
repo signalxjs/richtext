@@ -9,6 +9,8 @@ import { applyTransaction } from '../../src/editor/transaction.js';
 import type { Command, CommandContext } from '../../src/editor/commands.js';
 import { markdownFormat } from '@sigx/richtext-markdown';
 import { defaultToolbarItems, toolbarState } from '../../src/editor/toolbar.js';
+import { baseKeymap } from '../../src/editor/keymap.js';
+import { normalizeKeyName } from '../../src/editor/keys.js';
 import type { ToolbarContext, ToolbarItem, ToolbarState } from '../../src/editor/toolbar.js';
 
 const schema = markdownSchema;
@@ -124,6 +126,14 @@ describe('defaultToolbarItems', () => {
         expect(defaultToolbarItems.map((i) => i.id)).toEqual(['bold', 'italic', 'strike', 'code', 'link', 'h1', 'h2', 'h3', 'paragraph', 'bullet', 'ordered', 'task', 'quote', 'codeBlock', 'hr', 'table', 'undo', 'redo']);
         expect(new Set(defaultToolbarItems.map((i) => i.group))).toEqual(new Set(['inline', 'block', 'insert', 'history']));
         for (const item of defaultToolbarItems) expect(item.label).toBeTruthy();
+    });
+
+    it('carries the shortcut the keymap binds (Mod-k opens the DOM editor link popover)', () => {
+        const bound = new Set(Object.keys(baseKeymap).map(normalizeKeyName));
+        const withShortcut = defaultToolbarItems.filter((i) => i.shortcut);
+        expect(defaultToolbarItems.filter((i) => !i.shortcut).map((i) => i.id)).toEqual(['codeBlock', 'hr', 'table']);
+        for (const item of withShortcut) if (item.id !== 'link') expect(bound.has(normalizeKeyName(item.shortcut!)), item.id).toBe(true);
+        expect(by.link.shortcut).toBe('Mod-k');
     });
 
     it('derives active states from the toolbar state', () => {

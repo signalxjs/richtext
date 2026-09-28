@@ -58,7 +58,7 @@ export type { OrderedRange, RangeBlock } from './range.js';
 export { pickPasteFormat } from './paste.js';
 export type { PasteData } from './paste.js';
 
-export { keyName, keyNames, normalizeKeyName, canonicalKey } from './keys.js';
+export { keyName, keyNames, normalizeKeyName, canonicalKey, formatKeyName } from './keys.js';
 export type { KeyEventLike, KeyPlatform } from './keys.js';
 export { baseKeymap, resolveKeymap, runKeymap } from './keymap.js';
 export type { KeyName, Keymap, KeymapBinding, ResolvedKeymap, HistoryCommand } from './keymap.js';

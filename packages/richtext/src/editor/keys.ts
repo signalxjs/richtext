@@ -165,3 +165,32 @@ export function normalizeKeyName(name: string): KeyName {
     parts.push(canonicalKey(key));
     return parts.join('-');
 }
+
+const MAC_SYMBOLS: Record<string, string> = { Mod: '⌘', Meta: '⌘', Ctrl: '⌃', Alt: '⌥', Shift: '⇧' };
+const KEY_LABELS: Record<string, string> = {
+    Enter: '↵',
+    Escape: 'Esc',
+    Backspace: '⌫',
+    Delete: 'Del',
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    PageUp: 'PgUp',
+    PageDown: 'PgDn',
+};
+
+/**
+ * The keys of a key name as a user reads them, one entry per key — a skin
+ * renders each as a `<kbd>`. `Mod-Shift-z` is `['⌘', '⇧', 'Z']` on a mac
+ * and `['Ctrl', 'Shift', 'Z']` elsewhere.
+ */
+export function formatKeyName(name: KeyName, platform: KeyPlatform): string[] {
+    const parts = normalizeKeyName(name).split('-');
+    // `Mod--` splits into a trailing pair of empties: the key is `-`.
+    const key = name.endsWith('-') ? '-' : parts.pop()!;
+    const mods = name.endsWith('-') ? parts.filter(Boolean) : parts;
+    const out = mods.map((m) => (platform.isMac ? MAC_SYMBOLS[m] : m === 'Mod' ? 'Ctrl' : m) ?? m);
+    out.push(KEY_LABELS[key] ?? (key.length === 1 ? key.toUpperCase() : key));
+    return out;
+}

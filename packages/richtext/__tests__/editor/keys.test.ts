@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalKey, keyName, keyNames, normalizeKeyName } from '../../src/editor/keys.js';
+import { canonicalKey, formatKeyName, keyName, keyNames, normalizeKeyName } from '../../src/editor/keys.js';
 
 const mac = { isMac: true };
 const pc = { isMac: false };
@@ -81,5 +81,22 @@ describe('normalizeKeyName', () => {
         expect(canonicalKey('A')).toBe('a');
         expect(canonicalKey('arrowdown')).toBe('ArrowDown');
         expect(canonicalKey('pageDown')).toBe('PageDown');
+    });
+});
+
+describe('formatKeyName', () => {
+    it('spells Mod as ⌘ on a mac and Ctrl elsewhere, one entry per key', () => {
+        expect(formatKeyName('Mod-b', { isMac: true })).toEqual(['⌘', 'B']);
+        expect(formatKeyName('Mod-b', { isMac: false })).toEqual(['Ctrl', 'B']);
+        expect(formatKeyName('shift-mod-Z', { isMac: true })).toEqual(['⌘', '⇧', 'Z']);
+        expect(formatKeyName('Mod-Shift-z', { isMac: false })).toEqual(['Ctrl', 'Shift', 'Z']);
+        expect(formatKeyName('Mod-Alt-1', { isMac: true })).toEqual(['⌘', '⌥', '1']);
+    });
+
+    it('names special keys and keeps punctuation, including a trailing -', () => {
+        expect(formatKeyName('Shift-Enter', { isMac: false })).toEqual(['Shift', '↵']);
+        expect(formatKeyName('Mod-Shift-.', { isMac: false })).toEqual(['Ctrl', 'Shift', '.']);
+        expect(formatKeyName('Mod--', { isMac: false })).toEqual(['Ctrl', '-']);
+        expect(formatKeyName('Escape', { isMac: true })).toEqual(['Esc']);
     });
 });

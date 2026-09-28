@@ -15,6 +15,10 @@
         "@sigx/richtext-html": "workspace:*",
         "@sigx/richtext-markdown": "workspace:*",
         "@sigx/richtext-shiki": "workspace:*",
+        "@sigx/richtext-zero": "workspace:*",
+        "@sigx/zero": "catalog:",
+        "@sigx/zero-basic": "^0.15.0",
+        "@sigx/zero-daisyui": "^0.15.0",
         "shiki": "^4.0.2",
         "sigx": "catalog:"
     },

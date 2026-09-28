@@ -13,6 +13,8 @@ import { markdownFormat, mentionMarkdown, mentionPlugin, parseMarkdown, toMarkdo
 import { markdownPreset } from '@sigx/richtext-markdown/editor';
 import { htmlFormat, mentionHtml } from '@sigx/richtext-html';
 import { htmlPreset } from '@sigx/richtext-html/editor';
+import { ZeroRichTextEditor } from '@sigx/richtext-zero';
+import { activateSkin, SKINS, type SkinId } from './zero-skins';
 
 // Register the mention node with the AST and type its component slot: this
 // is the consumer-side half of the plugin contract (the package does not do
@@ -121,8 +123,21 @@ export const App = component(({ signal, onUnmounted }) => {
         tickMs: 16,
         streaming: false,
         lastLink: '',
-        editor: false
+        editor: false,
+        /** The @sigx/richtext-zero editor, and the zero design system it wears. */
+        zero: false,
+        skin: 'basic' as SkinId,
+        skinReady: ''
     });
+
+    const skin = () => SKINS.find((s) => s.id === state.skin) ?? SKINS[0];
+    const setSkin = (id: SkinId): void => {
+        state.skin = id;
+        const next = skin();
+        void activateSkin(next).then(() => {
+            if (state.skin === next.id) state.skinReady = next.id;
+        });
+    };
 
     // ---- Shiki: loaded on first toggle so the initial bundle stays small ----
     let shikiCode: CodeSlot | null = null;
@@ -249,6 +264,34 @@ export const App = component(({ signal, onUnmounted }) => {
                     Editor
                 </label>
                 <label>
+                    <input
+                        type="checkbox"
+                        data-testid="toggle-zero"
+                        checked={state.zero}
+                        onChange={() => {
+                            state.zero = !state.zero;
+                            if (state.zero) setSkin(state.skin);
+                        }}
+                    />
+                    Zero editor
+                </label>
+                {state.zero ? (
+                    <label>
+                        Skin
+                        <select
+                            data-testid="zero-skin"
+                            value={state.skin}
+                            onChange={(e) => setSkin((e.target as HTMLSelectElement).value as SkinId)}
+                        >
+                            {SKINS.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                ) : null}
+                <label>
                     chars/tick
                     <input
                         type="number"
@@ -287,6 +330,21 @@ export const App = component(({ signal, onUnmounted }) => {
             </header>
 
             <main class="panes">
+                {state.zero ? (
+                    <section class="pane pane-zero" data-theme={state.dark ? skin().themes.dark : skin().themes.light} data-skin={state.skinReady}>
+                        <h2>@sigx/richtext-zero</h2>
+                        {/* The same source again: the zero editor, the view panes and the serializer stay in step. */}
+                        <ZeroRichTextEditor
+                            id="zero-editor"
+                            title="Playground"
+                            format={markdownFormat}
+                            formats={[markdownFormat, htmlFormat]}
+                            model:source={[state, 'source']}
+                            plugins={EDITOR_PLUGINS}
+                            placeholder="Write, or type / for blocks and @ to mention…"
+                        />
+                    </section>
+                ) : null}
                 {state.editor ? (
                     <section class="pane pane-editor">
                         <h2>Editor</h2>

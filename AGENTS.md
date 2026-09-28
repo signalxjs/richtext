@@ -32,7 +32,9 @@ for token-by-token AI output), a save-friendly JSON document,
 `@sigx/richtext-markdown` (the CommonMark + GFM parser and serializer,
 `markdownFormat`, the markdown editor preset), `@sigx/richtext-html` (a
 platform-free HTML parser and serializer, `htmlFormat`, the `text/html`
-clipboard preset) and `@sigx/richtext-shiki` (Shiki highlighting as a
+clipboard preset), `@sigx/richtext-zero` (the editor drawn with `@sigx/zero`
+components, skinned by any `@sigx/zero-*` design system) and
+`@sigx/richtext-shiki` (Shiki highlighting as a
 plugin). One plugin
 contract feeds every format, every renderer and the editor. Consumed by
 `@sigx/lynx-markdown` (native rendering and editing on Lynx), `@sigx/ai` chat
@@ -235,6 +237,15 @@ through the workspace links), then `pnpm --filter <example-name> dev`.
 - `packages/richtext-shiki` → `@sigx/richtext-shiki` — `shikiPlugin()` /
   `createShikiHighlighter()` behind the core's `CodeHighlighter` contract; the
   only package that imports `shiki`. Peers on `@sigx/richtext` and `shiki`.
+- `packages/richtext-zero` → `@sigx/richtext-zero` — `ZeroRichTextEditor`
+  and the renderers behind it (`renderZeroToolbarItem`, `renderZeroToolbarGroup`,
+  `renderZeroSuggestion`, `renderZeroLinkPopover`, `renderZeroBlockMenuItem`,
+  `zeroToolbarItems()`), the icon set, the view switch and the highlighted
+  `SourcePane`, plus a layout stylesheet at `./css`. Fills the DOM editor's
+  skin hooks with `@sigx/zero` parts; the only package that imports
+  `@sigx/zero`. Peers on `@sigx/richtext`, `@sigx/zero` and `sigx` (zero
+  imports the umbrella; this package's own code does not). Its import smoke in
+  `verify:pack` runs in a second pass, after those peers are installed.
 
 Entries land one PR at a time; an entry exists once it is in `exports`.
 Formats never import each other, and the core never imports a format.

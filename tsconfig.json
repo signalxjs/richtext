@@ -35,6 +35,9 @@
       "@sigx/richtext-markdown/editor": [
         "./packages/richtext-markdown/src/editor/index.ts"
       ],
+      "@sigx/richtext-zero": [
+        "./packages/richtext-zero/src/index.ts"
+      ],
       "@sigx/richtext-shiki": [
         "./packages/richtext-shiki/src/index.ts"
       ],

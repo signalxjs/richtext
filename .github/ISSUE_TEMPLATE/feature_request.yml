@@ -47,6 +47,7 @@ body:
         - "@sigx/richtext-markdown"
         - "@sigx/richtext-html"
         - "@sigx/richtext-shiki"
+        - "@sigx/richtext-zero"
         - Not sure
     validations:
       required: true

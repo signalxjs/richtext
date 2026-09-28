@@ -20,3 +20,5 @@ catalog:
   "@sigx/server-renderer": ^1.0.0
   "@sigx/vite": ^1.0.0
   "sigx": ^1.0.0
+  # Not core: the design-system primitives @sigx/richtext-zero draws with.
+  "@sigx/zero": ^0.15.0

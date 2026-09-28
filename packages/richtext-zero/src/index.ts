@@ -7,7 +7,7 @@ export { ZERO_SCOPE, zeroPart } from './anatomy.js';
 export type { ZeroPart } from './anatomy.js';
 export { ICONS, hasIcon, ZeroIcon } from './icons.js';
 export type { ZeroIconProps } from './icons.js';
-export { renderZeroToolbarItem, renderZeroToolbarGroup, zeroToolbarItems, blockTypeItem, blockTypeOf, BLOCK_TYPES, BLOCK_TYPE_ID, titleOf, ShortcutKeys, isMacPlatform } from './toolbar.js';
+export { renderZeroToolbarItem, renderZeroToolbarGroup, zeroToolbarItems, blockTypeItem, blockTypeOf, BLOCK_TYPES, BLOCK_TYPE_ID, titleOf, ShortcutKeys, isMacPlatform, ariaKeyShortcuts } from './toolbar.js';
 export type { BlockTypeOption } from './toolbar.js';
 export { renderZeroLinkPopover } from './link.js';
 export { renderZeroBlockMenuItem, renderZeroSuggestion, BLOCK_HINTS } from './menus.js';

@@ -11,7 +11,7 @@ import { RichTextEditor, type RichTextEditorController } from '@sigx/richtext/ed
 import { defaultToolbarItems, textSelection } from '@sigx/richtext/editor';
 import { markdownPreset } from '@sigx/richtext-markdown/editor';
 import { markdownFormat } from '@sigx/richtext-markdown';
-import { hasIcon, renderZeroToolbarGroup, renderZeroToolbarItem, zeroToolbarItems } from '../src/index.js';
+import { ariaKeyShortcuts, hasIcon, renderZeroToolbarGroup, renderZeroToolbarItem, zeroToolbarItems } from '../src/index.js';
 
 const containers: HTMLDivElement[] = [];
 afterEach(() => {
@@ -143,7 +143,7 @@ describe('renderZeroToolbarItem', () => {
         const tips = Array.from(m.bar().querySelectorAll('[data-scope=tooltip][data-part=popup]')).map((t) => t.textContent);
         expect(tips).toContain(m.controller.editor.platform.isMac ? 'Bold ⌘B' : 'Bold CtrlB');
         expect(m.bar().querySelectorAll('[data-scope=kbd]').length).toBeGreaterThan(5);
-        expect(m.item('bold').getAttribute('aria-keyshortcuts')).toMatch(/B$/);
+        expect(m.item('bold').getAttribute('aria-keyshortcuts')).toBe(m.controller.editor.platform.isMac ? 'Meta+B' : 'Control+B');
     });
 
     it('the block-type select sets the block type', async () => {
@@ -155,6 +155,17 @@ describe('renderZeroToolbarItem', () => {
         await tick();
         expect(m.controller.getSource()).toBe('## hello\n');
         expect(m.item('blockType').textContent).toContain('Heading 2');
+    });
+});
+
+describe('ariaKeyShortcuts', () => {
+    it('spells a key name with ARIA modifier names, not display glyphs', () => {
+        expect(ariaKeyShortcuts('Mod-b', true)).toBe('Meta+B');
+        expect(ariaKeyShortcuts('Mod-b', false)).toBe('Control+B');
+        expect(ariaKeyShortcuts('Mod-Shift-z', false)).toBe('Control+Shift+Z');
+        expect(ariaKeyShortcuts('Mod-Alt-1', true)).toBe('Meta+Alt+1');
+        expect(ariaKeyShortcuts('Mod-Shift-.', false)).toBe('Control+Shift+.');
+        expect(ariaKeyShortcuts('Ctrl-Enter', true)).toBe('Control+Enter');
     });
 });
 

@@ -13,7 +13,7 @@
 import { createModel, mergeProps, type JSXElement } from '@sigx/runtime-core';
 import type {} from '@sigx/runtime-dom';
 import { Button, Kbd, Select, Toggle, Tooltip } from '@sigx/zero';
-import { commandRegistry as registry, commands, defaultToolbarItems, formatKeyName, type ToolbarContext, type ToolbarItem, type ToolbarState } from '@sigx/richtext/editor';
+import { commandRegistry as registry, commands, defaultToolbarItems, formatKeyName, normalizeKeyName, type ToolbarContext, type ToolbarItem, type ToolbarState } from '@sigx/richtext/editor';
 import type { ToolbarItemAttrs, ToolbarItemInfo, ToolbarRenderGroup, ToolbarRenderItem } from '@sigx/richtext/editor/dom';
 import { zeroPart } from './anatomy.js';
 import { ZeroIcon } from './icons.js';
@@ -23,6 +23,21 @@ export function isMacPlatform(): boolean {
     if (typeof navigator === 'undefined') return false;
     const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
     return /mac|iphone|ipad|ipod/i.test(nav.userAgentData?.platform ?? nav.platform ?? nav.userAgent ?? '');
+}
+
+const ARIA_MODIFIERS: Record<string, string> = { Ctrl: 'Control', Meta: 'Meta', Alt: 'Alt', Shift: 'Shift' };
+
+/**
+ * A key name as `aria-keyshortcuts` spells it: modifiers by their ARIA names
+ * (`Mod` is `Meta` on a mac, `Control` elsewhere), `+`-joined, letters upper-cased.
+ */
+export function ariaKeyShortcuts(shortcut: string, isMac: boolean): string {
+    const name = normalizeKeyName(shortcut);
+    const dash = name.endsWith('-');
+    const parts = (dash ? name.slice(0, -1) : name).split('-').filter(Boolean);
+    const key = dash ? '-' : parts.pop()!;
+    const mods = parts.map((m) => (m === 'Mod' ? (isMac ? 'Meta' : 'Control') : (ARIA_MODIFIERS[m] ?? m)));
+    return [...mods, key.length === 1 ? key.toUpperCase() : key].join('+');
 }
 
 /** The keys of a shortcut as `Kbd`s. */
@@ -96,7 +111,7 @@ export const renderZeroToolbarItem: ToolbarRenderItem = (item, info) => {
     if (item.id === BLOCK_TYPE_ID) return renderBlockType(info);
     const name = titleOf(item);
     // `role: undefined`: an asChild Toggle adds role="button", which a real <button> needs not.
-    const own = { ...roving(info.attrs), role: undefined, 'aria-keyshortcuts': item.shortcut ? formatKeyName(item.shortcut, { isMac: isMacPlatform() }).join('+') : undefined };
+    const own = { ...roving(info.attrs), role: undefined, 'aria-keyshortcuts': item.shortcut ? ariaKeyShortcuts(item.shortcut, isMacPlatform()) : undefined };
     if (item.isActive) {
         // Controlled: pressed is the item's state; a press runs the item (the state follows the editor).
         const holder = { get value() { return info.active; } };
@@ -187,8 +202,11 @@ function renderBlockType(info: ToolbarItemInfo): JSXElement {
     const holder = { get value() { return blockTypeOf(info.tb); } };
     const value = createModel<string>([holder, 'value'], (next) => {
         picked = BLOCK_TYPES.find((o) => o.value === next) ?? null;
-        info.run();
-        picked = null;
+        try {
+            info.run();
+        } finally {
+            picked = null;
+        }
     });
     return (
         <Select.Root key={BLOCK_TYPE_ID} model={value} placeholder="Block type" size="sm" disabled={!info.enabled}>

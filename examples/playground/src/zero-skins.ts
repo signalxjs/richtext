@@ -5,9 +5,8 @@
  * (`media="not all"`) and, once loaded, is un-parked through the CSSOM in the
  * same step that retires the outgoing one, so no frame paints two skins or
  * none (the zero playground's `design-systems.ts` explains the details).
+ * The stylesheets load only when a skin is activated.
  */
-import '@sigx/zero/css';
-import '@sigx/richtext-zero/css';
 import basicCss from '@sigx/zero-basic/css?url';
 import daisyuiCss from '@sigx/zero-daisyui/css?url';
 

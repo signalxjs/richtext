@@ -13,7 +13,7 @@ import { markdownFormat, mentionMarkdown, mentionPlugin, parseMarkdown, toMarkdo
 import { markdownPreset } from '@sigx/richtext-markdown/editor';
 import { htmlFormat, mentionHtml } from '@sigx/richtext-html';
 import { htmlPreset } from '@sigx/richtext-html/editor';
-import { ZeroRichTextEditor } from '@sigx/richtext-zero';
+import type { ZeroRichTextEditor } from '@sigx/richtext-zero';
 import { activateSkin, SKINS, type SkinId } from './zero-skins';
 
 // Register the mention node with the AST and type its component slot: this
@@ -127,8 +127,20 @@ export const App = component(({ signal, onUnmounted }) => {
         /** The @sigx/richtext-zero editor, and the zero design system it wears. */
         zero: false,
         skin: 'basic' as SkinId,
-        skinReady: ''
+        skinReady: '',
+        zeroReady: false
     });
+
+    // ---- The zero editor: loaded on first toggle, like Shiki ----
+    let ZeroEditor: typeof ZeroRichTextEditor | null = null;
+    let zeroLoading: Promise<void> | null = null;
+    const loadZero = (): Promise<void> => {
+        zeroLoading ??= import('./zero-editor').then((m) => {
+            ZeroEditor = m.ZeroRichTextEditor;
+            state.zeroReady = true;
+        });
+        return zeroLoading;
+    };
 
     const skin = () => SKINS.find((s) => s.id === state.skin) ?? SKINS[0];
     const setSkin = (id: SkinId): void => {
@@ -270,7 +282,10 @@ export const App = component(({ signal, onUnmounted }) => {
                         checked={state.zero}
                         onChange={() => {
                             state.zero = !state.zero;
-                            if (state.zero) setSkin(state.skin);
+                            if (state.zero) {
+                                void loadZero();
+                                setSkin(state.skin);
+                            }
                         }}
                     />
                     Zero editor
@@ -330,11 +345,11 @@ export const App = component(({ signal, onUnmounted }) => {
             </header>
 
             <main class="panes">
-                {state.zero ? (
+                {state.zero && state.zeroReady && ZeroEditor ? (
                     <section class="pane pane-zero" data-theme={state.dark ? skin().themes.dark : skin().themes.light} data-skin={state.skinReady}>
                         <h2>@sigx/richtext-zero</h2>
                         {/* The same source again: the zero editor, the view panes and the serializer stay in step. */}
-                        <ZeroRichTextEditor
+                        <ZeroEditor
                             id="zero-editor"
                             title="Playground"
                             format={markdownFormat}

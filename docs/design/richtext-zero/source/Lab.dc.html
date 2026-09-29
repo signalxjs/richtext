@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Richtext Lab</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2f5bd3}a:hover{color:#1f3f9c}
+.lab-btn{cursor:pointer}
+.lab-btn:focus-visible,.lab-tab:focus-visible{outline:2px solid #2f5bd3;outline-offset:2px}
+.lab-tab{cursor:pointer}
+.lab-range{accent-color:#2f5bd3;width:100%}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.lab-caret{animation:blink 1s steps(1) infinite}
+@keyframes tail{0%,100%{opacity:1}50%{opacity:.45}}
+.lab-tail{animation:tail 1.6s ease-in-out infinite}
+</style>
+</helmet>
+<div style="width: 1440px; height: 960px; display: flex; flex-direction: column; overflow: hidden; background: #f4f4f1; color: #17171a; font-family: 'Geist', system-ui, sans-serif">
+
+<header style="height: 56px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 28px; padding: 0 20px; background: #17171a; color: #f4f4f1">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 600">@sigx/richtext</span>
+<span style="padding: 2px 8px; border-radius: 999px; background: #2f5bd3; color: #ffffff; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase">Lab</span>
+</div>
+<nav aria-label="Lab sections" style="display: flex; gap: 4px; height: 100%">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="3">
+<a href="#{{n.id}}" aria-current="{{n.current}}" style="display: flex; align-items: center; padding: 0 12px; color: {{n.fg}}; box-shadow: inset 0 -2px 0 {{n.bar}}; font-size: 14px; font-weight: 500; text-decoration: none">{{n.label}}</a>
+</sc-for>
+</nav>
+<span style="flex-grow: 1"></span>
+<span style="font-size: 12px; color: #a3a3ab">Core only: no design system loaded</span>
+<a href="Showcase.dc.html" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border: 1px solid #3a3a42; border-radius: 8px; color: #f4f4f1; font-size: 13px; font-weight: 500; text-decoration: none">Zero editor showcase<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14 M13 6l6 6-6 6"></path></svg></a>
+</header>
+
+<div style="flex-grow: 1; min-height: 0; display: flex">
+
+<aside aria-label="Controls" style="width: 272px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px; padding: 20px; background: #ffffff; border-right: 1px solid #e4e3de; overflow-y: auto">
+
+<section style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b6b72">Document</h2>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #55555c">Sample
+<select style="height: 34px; padding: 0 10px; border: 1px solid #d9d8d2; border-radius: 8px; background: #ffffff; color: #17171a; font-family: inherit; font-size: 13px">
+<option>Kitchen sink</option>
+<option>Chat answer</option>
+<option>GFM tables</option>
+<option>Long code block</option>
+</select>
+</label>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #55555c">
+<span id="src-fmt">Source format</span>
+<div role="group" aria-labelledby="src-fmt" style="display: flex; padding: 3px; gap: 2px; background: #f1f1ee; border-radius: 9px">
+<sc-for list="{{formats}}" as="f" hint-placeholder-count="2">
+<button type="button" class="lab-btn" aria-pressed="{{f.pressed}}" onClick="{{f.pick}}" style="flex-grow: 1; height: 28px; border: none; border-radius: 7px; background: {{f.bg}}; color: {{f.fg}}; box-shadow: {{f.shadow}}; font-family: inherit; font-size: 13px; font-weight: 500">{{f.label}}</button>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b6b72">Plugins</h2>
+<sc-for list="{{toggles}}" as="g" hint-placeholder-count="4">
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer">
+<input type="checkbox" role="switch" checked="{{g.on}}" onChange="{{g.flip}}" style="width: 16px; height: 16px; margin: 0; accent-color: #2f5bd3">
+<span style="flex-grow: 1">{{g.label}}</span>
+<code style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #6b6b72">{{g.pkg}}</code>
+</label>
+</sc-for>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b6b72">Streaming</h2>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #55555c"><span style="display: flex; justify-content: space-between">Chars per tick<span style="font-family: 'Geist Mono', monospace; color: #17171a">3</span></span><input class="lab-range" type="range" min="1" max="40" value="3"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #55555c"><span style="display: flex; justify-content: space-between">Tick interval<span style="font-family: 'Geist Mono', monospace; color: #17171a">16 ms</span></span><input class="lab-range" type="range" min="4" max="200" value="16"></label>
+<div style="display: flex; gap: 8px">
+<button type="button" class="lab-btn" onClick="{{togglePlay}}" style="flex-grow: 1; height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: 8px; background: #2f5bd3; color: #ffffff; font-family: inherit; font-size: 13px; font-weight: 600"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="{{playIcon}}"></path></svg>{{playLabel}}</button>
+<button type="button" class="lab-btn" aria-label="Restart stream" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 1px solid #d9d8d2; border-radius: 8px; background: #ffffff; color: #17171a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7 M3 4v5h5"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div role="progressbar" aria-label="Streamed" aria-valuemin="0" aria-valuemax="{{total}}" aria-valuenow="{{cut}}" style="height: 6px; border-radius: 99px; background: #ebebe6; overflow: hidden"><div style="width: {{pct}}%; height: 100%; background: #2f5bd3"></div></div>
+<div style="display: flex; justify-content: space-between; font-family: 'Geist Mono', monospace; font-size: 11px; color: #6b6b72"><span>{{cut}} / {{total}} chars</span><span>{{pct}}%</span></div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b6b72">Rendering</h2>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer"><input type="checkbox" style="width: 16px; height: 16px; margin: 0; accent-color: #2f5bd3"><span style="flex-grow: 1">Class prefix</span><code style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #6b6b72">rt-</code></label>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer"><input type="checkbox" checked="{{yes}}" style="width: 16px; height: 16px; margin: 0; accent-color: #2f5bd3"><span style="flex-grow: 1">Mark block states</span></label>
+</section>
+</aside>
+
+<main style="flex-grow: 1; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 16px">
+
+<section aria-labelledby="src-h" style="min-height: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e4e3de; border-radius: 12px; overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid #ecebe6">
+<h2 id="src-h" style="margin: 0; font-size: 13px; font-weight: 600">Source</h2>
+<span style="padding: 2px 8px; border-radius: 999px; background: #f1f1ee; font-size: 11px; color: #55555c">{{fmtLabel}}</span>
+<span style="flex-grow: 1"></span>
+<span style="font-size: 12px; color: #6b6b72">editable</span>
+</div>
+<pre style="flex-grow: 1; margin: 0; padding: 12px 14px 16px 0; overflow: auto; font-family: 'Geist Mono', monospace; font-size: 12.5px; line-height: 1.75; white-space: pre-wrap; word-break: break-word"><sc-for list="{{src}}" as="ln" hint-placeholder-count="20"><span style="display: flex"><span aria-hidden="true" style="width: 42px; flex-shrink: 0; padding-right: 12px; box-sizing: border-box; text-align: right; color: #a3a3ab; user-select: none">{{ln.n}}</span><span style="flex-grow: 1; min-width: 0"><sc-for list="{{ln.segs}}" as="s" hint-placeholder-count="2"><span style="color: {{s.color}}; font-weight: {{s.w}}">{{s.x}}</span></sc-for><sc-if value="{{ln.caret}}" hint-placeholder-val="{{false}}"><span class="lab-caret" aria-hidden="true" style="display: inline-block; width: 2px; height: 16px; vertical-align: -3px; background: #c2410c"></span></sc-if><span style="color: #b9b9bf">{{ln.rest}}</span></span></span></sc-for></pre>
+</section>
+
+<section aria-labelledby="view-h" style="min-height: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e4e3de; border-radius: 12px; overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid #ecebe6">
+<h2 id="view-h" style="margin: 0; font-size: 13px; font-weight: 600">Streamed view</h2>
+<span style="flex-grow: 1"></span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #55555c"><span aria-hidden="true" style="width: 10px; height: 3px; border-radius: 2px; background: #2f5bd3"></span>final</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #55555c"><span aria-hidden="true" style="width: 10px; height: 3px; border-radius: 2px; background: #c2410c"></span>open tail</span>
+</div>
+<div data-scope="richtext" data-part="root" style="flex-grow: 1; overflow: auto; padding: 16px 20px 20px 8px; font-size: 14.5px; line-height: 1.6">
+<sc-for list="{{blocks}}" as="b" hint-placeholder-count="7">
+<div style="display: flex; gap: 12px; margin-bottom: {{b.gap}}px">
+<span class="{{b.cls}}" title="{{b.state}}" aria-hidden="true" style="width: 3px; flex-shrink: 0; border-radius: 2px; background: {{b.bar}}"></span>
+<div style="flex-grow: 1; min-width: 0">
+<sc-if value="{{b.h1}}" hint-placeholder-val="{{false}}"><h1 style="margin: 0; font-size: 24px; line-height: 1.25; font-weight: 650; letter-spacing: -0.02em">{{b.text}}</h1></sc-if>
+<sc-if value="{{b.h2}}" hint-placeholder-val="{{false}}"><h2 style="margin: 6px 0 0; font-size: 17px; line-height: 1.3; font-weight: 650">{{b.text}}</h2></sc-if>
+<sc-if value="{{b.p}}" hint-placeholder-val="{{true}}"><p style="margin: 0">Markdown for <strong>SignalX</strong>: an incremental parser that keeps finalized blocks stable while the source grows, a serializer, and a DOM view styled through <code style="font-family: 'Geist Mono', monospace; font-size: 12.5px; padding: 1px 5px; background: #f1f1ee; border-radius: 4px">data-part</code> attributes.</p></sc-if>
+<sc-if value="{{b.ul}}" hint-placeholder-val="{{false}}"><ul style="margin: 0; padding-left: 20px"><li>Blocks keep their identity while streaming</li><li>Inline: <em>emphasis</em>, <strong>strong</strong>, <del>strike</del>, <code style="font-family: 'Geist Mono', monospace; font-size: 12.5px; padding: 1px 5px; background: #f1f1ee; border-radius: 4px">code</code><ul style="padding-left: 20px"><li>Nested items work too</li></ul></li></ul></sc-if>
+<sc-if value="{{b.ol}}" hint-placeholder-val="{{false}}"><ol style="margin: 0; padding-left: 22px"><li>Parse</li><li>Render</li><li>Serialize</li></ol></sc-if>
+<sc-if value="{{b.table}}" hint-placeholder-val="{{false}}"><table style="width: 100%; border-collapse: collapse; font-size: 13.5px"><thead><tr style="text-align: left; background: #f6f6f3"><th scope="col" style="padding: 6px 10px; border: 1px solid #e4e3de; font-weight: 600">Feature</th><th scope="col" style="padding: 6px 10px; border: 1px solid #e4e3de; font-weight: 600">Status</th></tr></thead><tbody><tr><td style="padding: 6px 10px; border: 1px solid #e4e3de">GFM tables</td><td style="padding: 6px 10px; border: 1px solid #e4e3de">done</td></tr><tr><td style="padding: 6px 10px; border: 1px solid #e4e3de">Stream<span class="lab-caret" aria-hidden="true" style="display: inline-block; width: 2px; height: 14px; margin-left: 1px; vertical-align: -2px; background: #c2410c"></span></td><td style="padding: 6px 10px; border: 1px solid #e4e3de"></td></tr></tbody></table></sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="insp-h" style="min-height: 0; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e4e3de; border-radius: 12px; overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px 0 14px; border-bottom: 1px solid #ecebe6">
+<h2 id="insp-h" style="margin: 0 10px 0 0; font-size: 13px; font-weight: 600">Inspector</h2>
+<div role="tablist" aria-label="Inspector" style="display: flex; gap: 2px; height: 100%">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button type="button" role="tab" class="lab-tab" aria-selected="{{t.selected}}" onClick="{{t.pick}}" style="height: 100%; padding: 0 10px; border: none; background: transparent; color: {{t.fg}}; box-shadow: inset 0 -2px 0 {{t.bar}}; font-family: inherit; font-size: 13px; font-weight: 500">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{showEngine}}" hint-placeholder-val="{{true}}">
+<div role="tabpanel" aria-label="Engine" style="flex-grow: 1; overflow: auto; display: flex; flex-direction: column; gap: 16px; padding: 16px">
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{stats}}" as="st" hint-placeholder-count="4">
+<div style="padding: 12px; border: 1px solid #ecebe6; border-radius: 10px; background: #fafaf8"><dt style="font-size: 12px; color: #6b6b72">{{st.label}}</dt><dd style="margin: 4px 0 0; font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 600; color: {{st.color}}">{{st.value}}</dd></div>
+</sc-for>
+</dl>
+<div style="display: flex; flex-direction: column">
+<div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 80px 70px; padding: 0 4px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6b6b72"><span>Key</span><span>Type</span><span>Source</span><span>State</span></div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+<div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 80px 70px; align-items: center; padding: 7px 4px; border-top: 1px solid #efeeea; font-size: 12.5px">
+<span style="font-family: 'Geist Mono', monospace; color: #6b6b72">{{r.key}}</span>
+<span style="font-family: 'Geist Mono', monospace">{{r.type}}</span>
+<span style="font-family: 'Geist Mono', monospace; color: #6b6b72">{{r.range}}</span>
+<span style="justify-self: start; padding: 1px 8px; border-radius: 999px; background: {{r.bg}}; color: {{r.fg}}; font-size: 11.5px; font-weight: 600">{{r.state}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showOut}}" hint-placeholder-val="{{false}}">
+<div role="tabpanel" aria-label="{{outLabel}}" style="flex-grow: 1; overflow: auto; display: flex; flex-direction: column">
+<div style="padding: 10px 14px; border-bottom: 1px solid #efeeea; font-family: 'Geist Mono', monospace; font-size: 11.5px; color: #6b6b72">{{outCall}}</div>
+<pre style="margin: 0; padding: 12px 14px 16px; font-family: 'Geist Mono', monospace; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; color: #17171a"><sc-for list="{{out}}" as="o" hint-placeholder-count="12"><span style="display: block; min-height: 1.7em; color: {{o.color}}">{{o.x}}</span></sc-for></pre>
+</div>
+</sc-if>
+</section>
+</main>
+</div>
+
+<footer style="height: 30px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 18px; padding: 0 20px; background: #ffffff; border-top: 1px solid #e4e3de; font-size: 12px; color: #55555c">
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" class="lab-tail" style="width: 7px; height: 7px; border-radius: 99px; background: #c2410c"></span>{{statusText}}</span>
+<span>createIncrementalEngine</span>
+<span style="flex-grow: 1"></span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px">@sigx/richtext · @sigx/richtext-markdown · @sigx/richtext-html · @sigx/richtext-shiki</span>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+var SRC = [
+  '# @sigx/richtext playground',
+  '',
+  'Markdown for **SignalX**: an incremental parser that keeps finalized blocks stable while the source grows, a serializer, and a DOM view styled through `data-part` attributes.',
+  '',
+  '## Lists',
+  '',
+  '- Blocks keep their identity while streaming',
+  '- Inline: *emphasis*, **strong**, ~~strike~~, `code`',
+  '  - Nested items work too',
+  '',
+  '1. Parse',
+  '2. Render',
+  '3. Serialize',
+  '',
+  '## Table',
+  '',
+  '| Feature | Status |',
+  '| --- | --- |',
+  '| GFM tables | done |',
+  '| Streaming | done |',
+  '',
+  '```ts',
+  'const engine = createIncrementalEngine()',
+  '```'
+];
+var CUT_LINE = 19, CUT_COL = 8;
+var HTML_OUT = [
+  '<h1>@sigx/richtext playground</h1>',
+  '<p>Markdown for <strong>SignalX</strong>: an incremental parser that keeps finalized blocks stable while the source grows, a serializer, and a DOM view styled through <code>data-part</code> attributes.</p>',
+  '<h2>Lists</h2>',
+  '<ul>',
+  '  <li>Blocks keep their identity while streaming</li>',
+  '  <li>Inline: <em>emphasis</em>, <strong>strong</strong>, <del>strike</del>, <code>code</code>',
+  '    <ul><li>Nested items work too</li></ul></li>',
+  '</ul>',
+  '<ol><li>Parse</li><li>Render</li><li>Serialize</li></ol>',
+  '<h2>Table</h2>',
+  '<table>',
+  '  <thead><tr><th>Feature</th><th>Status</th></tr></thead>',
+  '  <tbody>',
+  '    <tr><td>GFM tables</td><td>done</td></tr>',
+  '    <tr><td>Stream</td><td></td></tr>',
+  '  </tbody>',
+  '</table>'
+];
+var JSON_OUT = [
+  '{',
+  '  "type": "root",',
+  '  "children": [',
+  '    { "type": "heading", "depth": 1, "key": "b1", … },',
+  '    { "type": "paragraph", "key": "b2", … },',
+  '    { "type": "heading", "depth": 2, "key": "b3", … },',
+  '    { "type": "list", "ordered": false, "key": "b4", … },',
+  '    { "type": "list", "ordered": true, "key": "b5", … },',
+  '    { "type": "heading", "depth": 2, "key": "b6", … },',
+  '    { "type": "table", "align": [null, null], "key": "b7", … }',
+  '  ]',
+  '}'
+];
+var INK = '#17171a', FAINT = '#b9b9bf', MARK = '#2f5bd3', CODE = '#1a7f4b', HEAD = '#17171a';
+function tok(line, streamed) {
+  if (!streamed) return [{ x: line || ' ', color: FAINT, w: 400 }];
+  if (!line) return [{ x: ' ', color: INK, w: 400 }];
+  var out = [], m = line.match(/^(#{1,6} |\s*- |\d+\. |\| ?-{3}.*$)/);
+  var rest = line;
+  if (m) { out.push({ x: m[1], color: MARK, w: 600 }); rest = line.slice(m[1].length); }
+  if (m && m[1][0] === '#') { out.push({ x: rest, color: HEAD, w: 650 }); return out; }
+  rest.split(/(\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~|`[^`]+`|\|)/).forEach(function (p) {
+    if (!p) return;
+    if (p === '|') out.push({ x: p, color: MARK, w: 400 });
+    else if (p[0] === '`') out.push({ x: p, color: CODE, w: 400 });
+    else if (p[0] === '*' || p[0] === '~') out.push({ x: p, color: INK, w: p.indexOf('**') === 0 ? 650 : 400 });
+    else out.push({ x: p, color: INK, w: 400 });
+  });
+  return out;
+}
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'engine', playing: true, format: 'markdown', plugins: { shiki: true, mention: true, gfm: true, html: true } };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    var src = SRC.map(function (line, i) {
+      if (i < CUT_LINE) return { n: i + 1, segs: tok(line, true), caret: false, rest: '' };
+      if (i === CUT_LINE) return { n: i + 1, segs: tok(line.slice(0, CUT_COL), true), caret: true, rest: line.slice(CUT_COL) };
+      return { n: i + 1, segs: tok(line, false), caret: false, rest: '' };
+    });
+    var total = SRC.join('\n').length;
+    var cut = SRC.slice(0, CUT_LINE).join('\n').length + 1 + CUT_COL;
+    var FINAL = { bar: '#2f5bd3', state: 'final', cls: '', bg: '#e7edfb', fg: '#1f3f9c' };
+    var OPEN = { bar: '#c2410c', state: 'open', cls: 'lab-tail', bg: '#fdebdd', fg: '#9a3412' };
+    var defs = [
+      ['b1', 'heading', '1–1', 'h1', '@sigx/richtext playground', FINAL, 14],
+      ['b2', 'paragraph', '3–3', 'p', '', FINAL, 14],
+      ['b3', 'heading', '5–5', 'h2', 'Lists', FINAL, 10],
+      ['b4', 'list', '7–9', 'ul', '', FINAL, 12],
+      ['b5', 'list', '11–13', 'ol', '', FINAL, 14],
+      ['b6', 'heading', '15–15', 'h2', 'Table', FINAL, 10],
+      ['b7', 'table', '17–20', 'table', '', OPEN, 0]
+    ];
+    var blocks = defs.map(function (d) {
+      return { h1: d[3] === 'h1', h2: d[3] === 'h2', p: d[3] === 'p', ul: d[3] === 'ul', ol: d[3] === 'ol', table: d[3] === 'table', text: d[4], bar: d[5].bar, state: d[5].state, cls: d[5].cls, gap: d[6] };
+    });
+    var rows = defs.map(function (d) { return { key: d[0], type: d[1], range: 'L' + d[2], state: d[5].state, bg: d[5].bg, fg: d[5].fg }; });
+    var tabs = [['engine', 'Engine'], ['markdown', 'Markdown'], ['html', 'HTML'], ['json', 'JSON']].map(function (t) {
+      var on = st.tab === t[0];
+      return { label: t[1], selected: String(on), fg: on ? '#17171a' : '#6b6b72', bar: on ? '#2f5bd3' : 'transparent', pick: function () { self.setState({ tab: t[0] }); } };
+    });
+    var formats = [['markdown', 'Markdown'], ['html', 'HTML']].map(function (f) {
+      var on = st.format === f[0];
+      return { label: f[1], pressed: String(on), bg: on ? '#ffffff' : 'transparent', fg: on ? '#17171a' : '#55555c', shadow: on ? '0 1px 2px rgba(0,0,0,.12)' : 'none', pick: function () { self.setState({ format: f[0] }); } };
+    });
+    var toggles = [['shiki', 'Shiki', 'richtext-shiki'], ['mention', 'Mentions', 'mentionPlugin'], ['gfm', 'GFM tables and tasks', 'markdown'], ['html', 'HTML paste', 'htmlPreset']].map(function (g) {
+      return { label: g[1], pkg: g[2], on: !!st.plugins[g[0]], flip: function () { var p = Object.assign({}, self.state.plugins); p[g[0]] = !p[g[0]]; self.setState({ plugins: p }); } };
+    });
+    var out = [], outCall = '';
+    if (st.tab === 'markdown') { outCall = 'toMarkdown(engine.parse(source))'; out = SRC.slice(0, CUT_LINE).concat(['| Stream |  |']).map(function (x) { return { x: x || ' ', color: '#17171a' }; }); }
+    if (st.tab === 'html') { outCall = 'toHtml(engine.parse(source))'; out = HTML_OUT.map(function (x) { return { x: x, color: '#17171a' }; }); }
+    if (st.tab === 'json') { outCall = 'toJSON(engine.parse(source))'; out = JSON_OUT.map(function (x) { return { x: x, color: '#17171a' }; }); }
+    var pct = Math.round(cut / total * 100);
+    return {
+      nav: [['stream', 'Streaming', true], ['roundtrip', 'Round-trip', false], ['editor', 'Core editor', false]].map(function (n) { return { id: n[0], label: n[1], current: n[2] ? 'page' : 'false', fg: n[2] ? '#ffffff' : '#a3a3ab', bar: n[2] ? '#2f5bd3' : 'transparent' }; }),
+      formats: formats, toggles: toggles, src: src, blocks: blocks, rows: rows, tabs: tabs,
+      showEngine: st.tab === 'engine', showOut: st.tab !== 'engine', out: out, outCall: outCall, outLabel: st.tab,
+      stats: [
+        { label: 'Finalized blocks', value: '6', color: '#1f3f9c' },
+        { label: 'Open tail', value: '1', color: '#9a3412' },
+        { label: 'Cut offset', value: String(cut), color: '#17171a' },
+        { label: 'Parse per tick', value: '0.08 ms', color: '#17171a' }
+      ],
+      cut: cut, total: total, pct: pct,
+      fmtLabel: st.format === 'html' ? 'HTML' : 'Markdown',
+      playLabel: st.playing ? 'Pause' : 'Stream',
+      playIcon: st.playing ? 'M7 5h3v14H7z M14 5h3v14h-3z' : 'M7 4.5v15l12-7.5z',
+      togglePlay: function () { self.setState({ playing: !self.state.playing }); },
+      statusText: st.playing ? 'Streaming · 3 chars every 16 ms' : 'Paused',
+      yes: true
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,12 +1,12 @@
 {
-    "name": "playground-example",
+    "name": "editor-example",
     "private": true,
     "type": "module",
-    "description": "The Richtext Lab: @sigx/richtext with no design system — token-by-token streaming through its own incremental engine with the final / open block state marked, an engine inspector, the serializers, the round trip and the core editor",
+    "description": "The @sigx/richtext-zero editor showcase — the finished editor filling the page, wearing a published zero design system (Basic or daisyUI, light or dark)",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "preview": "vite preview --port 4173 --strictPort",
+        "preview": "vite preview --port 4174 --strictPort",
         "typecheck": "tsc --noEmit -p tsconfig.json",
         "e2e": "playwright test"
     },
@@ -14,8 +14,10 @@
         "@sigx/richtext": "workspace:*",
         "@sigx/richtext-html": "workspace:*",
         "@sigx/richtext-markdown": "workspace:*",
-        "@sigx/richtext-shiki": "workspace:*",
-        "shiki": "^4.0.2",
+        "@sigx/richtext-zero": "workspace:*",
+        "@sigx/zero": "catalog:",
+        "@sigx/zero-basic": "^0.15.0",
+        "@sigx/zero-daisyui": "^0.15.0",
         "sigx": "catalog:"
     },
     "devDependencies": {

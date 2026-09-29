@@ -1,0 +1,662 @@
+/*
+ * The Lab's own chrome: the bar, the control panel, the columns and the
+ * inspector. The rendered markdown is styled by `styles.css` and the editor
+ * by `editor.css` — the reference stylesheets — and this file reuses their
+ * `--md-*` tokens, so the Lab follows the same light / dark switch.
+ */
+
+:root {
+    --lab-page: #f4f4f5;
+    --lab-panel: var(--md-bg);
+    --lab-bar: #17171b;
+    --lab-bar-fg: #f4f4f5;
+    --lab-final: #2563eb;
+    --lab-open: #ea580c;
+    --lab-final-soft: color-mix(in srgb, var(--lab-final) 14%, transparent);
+    --lab-open-soft: color-mix(in srgb, var(--lab-open) 16%, transparent);
+    --lab-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: light;
+    font-family: system-ui, sans-serif;
+}
+
+:root[data-theme='dark'] {
+    --lab-page: #010409;
+    --lab-final: #4493f8;
+    --lab-open: #f0883e;
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        --lab-page: #010409;
+        --lab-final: #4493f8;
+        --lab-open: #f0883e;
+        color-scheme: dark;
+    }
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    background: var(--lab-page);
+    color: var(--md-fg);
+}
+
+#app {
+    height: 100%;
+}
+
+button,
+select,
+input {
+    font: inherit;
+    color: inherit;
+}
+
+.mono {
+    font-family: var(--lab-mono);
+}
+
+.muted {
+    color: var(--md-muted);
+}
+
+.spacer {
+    flex: 1;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* ---- Shell ------------------------------------------------------------ */
+
+.lab {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100%;
+}
+
+.lab-main {
+    display: grid;
+    grid-template-columns: 16rem 1fr;
+    min-height: 0;
+}
+
+.lab-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0 1rem;
+    background: var(--lab-bar);
+    color: var(--lab-bar-fg);
+    font-size: 0.875rem;
+}
+
+.lab-bar .wordmark {
+    font: 600 0.95rem var(--lab-mono);
+}
+
+.lab-bar .badge {
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: #2563eb;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.lab-bar .tabs {
+    display: flex;
+    align-self: stretch;
+    margin-left: 1rem;
+}
+
+.lab-bar .tabs button {
+    padding: 0.9rem 0.85rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: #a1a1aa;
+    cursor: pointer;
+}
+
+.lab-bar .tabs button[aria-selected='true'] {
+    color: var(--lab-bar-fg);
+    border-bottom-color: #3b82f6;
+    font-weight: 600;
+}
+
+.lab-bar .note {
+    color: #a1a1aa;
+    font-size: 0.8rem;
+}
+
+.lab-bar .ghost {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid #3f3f46;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.lab-bar .ghost:hover {
+    border-color: #a1a1aa;
+}
+
+.lab-foot {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.35rem 1rem;
+    border-top: 1px solid var(--md-border);
+    background: var(--lab-panel);
+    font-size: 0.78rem;
+}
+
+.lab-foot .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--md-muted);
+}
+
+.lab-foot .dot[data-status='streaming'] {
+    background: var(--lab-open);
+}
+
+.lab-foot .dot[data-status='done'] {
+    background: var(--lab-final);
+}
+
+/* ---- Control panel ---------------------------------------------------- */
+
+.controls {
+    overflow: auto;
+    padding: 1rem;
+    border-right: 1px solid var(--md-border);
+    background: var(--lab-panel);
+    font-size: 0.875rem;
+}
+
+.controls section + section {
+    margin-top: 1.25rem;
+}
+
+.controls h3 {
+    margin: 0 0 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--md-muted);
+}
+
+.controls .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+
+.controls .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.controls select {
+    padding: 0.45rem 0.5rem;
+    border: 1px solid var(--md-border);
+    border-radius: 0.4rem;
+    background: var(--md-bg);
+}
+
+.controls input[type='range'] {
+    width: 100%;
+    accent-color: var(--lab-final);
+}
+
+.segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 0.2rem;
+    border-radius: 0.5rem;
+    background: var(--md-surface);
+}
+
+.segmented button {
+    padding: 0.4rem;
+    border: 0;
+    border-radius: 0.35rem;
+    background: none;
+    cursor: pointer;
+}
+
+.segmented button[aria-checked='true'] {
+    background: var(--md-bg);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.check {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    cursor: pointer;
+}
+
+.check input {
+    margin: 0;
+    accent-color: var(--lab-final);
+}
+
+.check .hint {
+    font: 0.72rem var(--lab-mono);
+    color: var(--md-muted);
+}
+
+.transport {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.25rem 0 0.6rem;
+}
+
+.transport button {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--md-border);
+    border-radius: 0.4rem;
+    background: var(--md-bg);
+    cursor: pointer;
+}
+
+.transport .primary {
+    flex: 1;
+    border-color: var(--lab-final);
+    background: var(--lab-final);
+    color: #fff;
+    font-weight: 600;
+}
+
+.controls progress {
+    width: 100%;
+    height: 0.35rem;
+    accent-color: var(--lab-final);
+}
+
+.controls progress + .row {
+    font-size: 0.72rem;
+}
+
+/* ---- Columns ---------------------------------------------------------- */
+
+.cols {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    min-height: 0;
+    padding: 1rem;
+}
+
+[data-tab='editor'] .cols {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid var(--md-border);
+    border-radius: 0.6rem;
+    background: var(--lab-panel);
+    overflow: hidden;
+}
+
+.col-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 0.9rem;
+    border-bottom: 1px solid var(--md-border);
+    font-size: 0.8rem;
+}
+
+.col-head h2 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.col-head .chip {
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: var(--md-surface);
+    color: var(--md-muted);
+    font-size: 0.7rem;
+}
+
+.col-head .col-note {
+    margin-left: auto;
+    color: var(--md-muted);
+}
+
+.col-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0.9rem 1rem;
+}
+
+.col-body.flush {
+    padding: 0;
+}
+
+.col-body .empty {
+    margin: 0 0 1rem;
+    color: var(--md-muted);
+    font-size: 0.875rem;
+}
+
+.col-body pre.out {
+    margin: 0;
+    font: 0.8rem/1.45 var(--lab-mono);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ---- Source: the mirror and the textarea over it ---------------------- */
+
+.src {
+    position: relative;
+    --src-gutter: 2.75rem;
+    --src-pad: 0.75rem;
+}
+
+.src-mirror,
+.src-input {
+    margin: 0;
+    padding: var(--src-pad) var(--src-pad) var(--src-pad) calc(var(--src-gutter) + 0.5rem);
+    font: 0.82rem/1.6 var(--lab-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    tab-size: 4;
+    box-sizing: border-box;
+}
+
+.src-mirror {
+    min-height: 100%;
+    color: var(--md-fg);
+}
+
+.src-row {
+    position: relative;
+}
+
+.src-row .ln {
+    position: absolute;
+    left: calc(-1 * var(--src-gutter) - 0.5rem);
+    width: var(--src-gutter);
+    text-align: right;
+    color: var(--md-muted);
+    opacity: 0.7;
+    user-select: none;
+}
+
+.src-row .pending {
+    opacity: 0.38;
+}
+
+.src-row .cut {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    margin: 0 -1px;
+    vertical-align: -0.2em;
+    background: var(--lab-open);
+    animation: lab-blink 1s steps(2, start) infinite;
+}
+
+.src-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--md-fg);
+}
+
+.src-input::selection {
+    background: color-mix(in srgb, var(--lab-final) 28%, transparent);
+    color: transparent;
+}
+
+/* ---- Streamed view: the block-state gutter ---------------------------- */
+
+.block-gutter {
+    position: relative;
+}
+
+.block-gutter::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -0.65rem;
+    width: 3px;
+    border-radius: 2px;
+}
+
+.block-gutter[data-block-state='final']::before {
+    background: var(--lab-final);
+}
+
+.block-gutter[data-block-state='open']::before {
+    background: var(--lab-open);
+    animation: lab-pulse 1.2s ease-in-out infinite;
+}
+
+/* The gutter is a wrapper: margins still collapse through it, and the reference first / last-child rules follow. */
+[data-block-states] > .block-gutter:first-child > :first-child {
+    margin-top: 0;
+}
+
+[data-block-states] > .block-gutter:last-child > :last-child {
+    margin-bottom: 0;
+}
+
+.legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+    color: var(--md-muted);
+}
+
+.legend .swatch {
+    width: 0.8rem;
+    height: 3px;
+    margin-left: 0.4rem;
+    border-radius: 2px;
+}
+
+.swatch[data-block-state='final'] {
+    background: var(--lab-final);
+}
+
+.swatch[data-block-state='open'] {
+    background: var(--lab-open);
+}
+
+@keyframes lab-pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+
+@keyframes lab-blink {
+    to {
+        visibility: hidden;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .block-gutter[data-block-state='open']::before,
+    .src-row .cut {
+        animation: none;
+    }
+}
+
+/* ---- Inspector -------------------------------------------------------- */
+
+.tabs-head {
+    gap: 0.75rem;
+}
+
+.subtabs {
+    display: flex;
+    align-self: stretch;
+}
+
+.subtabs button {
+    padding: 0 0.55rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--md-muted);
+    cursor: pointer;
+}
+
+.subtabs button[aria-selected='true'] {
+    color: var(--md-fg);
+    border-bottom-color: var(--lab-final);
+    font-weight: 600;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--md-border);
+    border-radius: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.72rem;
+    color: var(--md-muted);
+}
+
+.stat-value {
+    font: 600 1.2rem var(--lab-mono);
+}
+
+.stat[data-tone='final'] .stat-value {
+    color: var(--lab-final);
+}
+
+.stat[data-tone='open'] .stat-value {
+    color: var(--lab-open);
+}
+
+.note-box {
+    margin: 0 0 1rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.4rem;
+    background: var(--md-surface);
+    font-size: 0.8rem;
+}
+
+table.blocks {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+table.blocks th {
+    padding: 0.35rem 0.4rem;
+    border-bottom: 1px solid var(--md-border);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    color: var(--md-muted);
+}
+
+table.blocks td {
+    padding: 0.4rem;
+    border-bottom: 1px solid var(--md-border);
+}
+
+.pill {
+    display: inline-block;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: var(--md-surface);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.pill[data-block-state='final'],
+.pill[data-ok] {
+    background: var(--lab-final-soft);
+    color: var(--lab-final);
+}
+
+.pill[data-block-state='open'],
+.pill[data-testid='roundtrip']:not([data-ok]) {
+    background: var(--lab-open-soft);
+    color: var(--lab-open);
+}
+
+/* ---- Narrow screens: one column, the page scrolls --------------------- */
+
+@media (max-width: 900px) {
+    .lab {
+        height: auto;
+    }
+
+    .lab-main,
+    .cols,
+    [data-tab='editor'] .cols {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .controls {
+        border-right: 0;
+        border-bottom: 1px solid var(--md-border);
+    }
+
+    .col {
+        max-height: 80vh;
+    }
+}

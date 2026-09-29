@@ -1,0 +1,147 @@
+/*
+ * The showcase's own chrome: the bar and the page frame. Everything below
+ * the bar is the zero editor, styled by the active design system and
+ * `@sigx/richtext-zero/css` — the bar keeps fixed colours so it reads the
+ * same in every skin and theme.
+ */
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    background: var(--color-base-100, Canvas);
+    color: var(--color-base-content, CanvasText);
+    font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+#app,
+.showcase {
+    height: 100%;
+}
+
+.showcase {
+    display: flex;
+    flex-direction: column;
+}
+
+.showcase > .editor {
+    flex: 1;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+}
+
+.bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.55rem 1rem;
+    background: #17171b;
+    color: #f4f4f5;
+    font: 0.875rem/1.2 system-ui, sans-serif;
+}
+
+.bar .wordmark {
+    font: 600 0.95rem ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.bar .badge {
+    padding: 0.15rem 0.5rem;
+    border: 1px solid #52525b;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #d4d4d8;
+}
+
+.bar .spacer {
+    flex: 1;
+}
+
+.bar .label {
+    color: #a1a1aa;
+}
+
+.bar .skins {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.bar .skin {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid #3f3f46;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.bar .skin[data-checked] {
+    background: #f4f4f5;
+    border-color: #f4f4f5;
+    color: #18181b;
+}
+
+.bar .skin:focus-within {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+}
+
+/* The native radio stays in the tab order and the accessibility tree; the pill is its label. */
+.bar .skin input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* The pill's text lets clicks through to the radio under it. */
+.bar .skin > span {
+    pointer-events: none;
+}
+
+.bar .skin-pkg {
+    font: 0.75rem ui-monospace, SFMono-Regular, Menlo, monospace;
+    opacity: 0.65;
+}
+
+.bar .theme,
+.bar .lab {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid #3f3f46;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.bar .theme:hover,
+.bar .lab:hover {
+    border-color: #a1a1aa;
+}
+
+.bar .divider {
+    width: 1px;
+    align-self: stretch;
+    background: #3f3f46;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: pre;
+}

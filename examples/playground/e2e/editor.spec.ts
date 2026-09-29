@@ -19,14 +19,14 @@ const SELECT_ALL = MAC_HOST ? 'Meta+a' : 'Control+a';
 
 const editor = (page: Page) => page.locator('#editor[data-part="root"]');
 const block = (page: Page, key: string) => page.locator(`#editor [data-part="inline"][data-key="${key}"]`);
-/** The markdown the editor wrote back: the serializer pane renders `toMarkdown(parseMarkdown(source))`. */
+/** The markdown the editor wrote back: the inspector's Markdown tab renders `toMarkdown(parseMarkdown(source))`. */
 const serialized = (page: Page) => page.getByTestId('serialized-md');
 
 async function openEditor(page: Page, markdown = ''): Promise<void> {
     await page.goto('/');
-    // Seed the source through the textarea, then switch the pane to the editor bound to it.
+    // Seed the source through the textarea, then open the Core editor tab, bound to it.
     await page.getByTestId('source').fill(markdown);
-    await page.getByTestId('toggle-editor').check();
+    await page.getByTestId('tab-editor').click();
     await expect(editor(page)).toBeVisible();
 }
 

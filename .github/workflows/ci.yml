@@ -102,9 +102,10 @@ jobs:
           files: ./coverage/coverage-final.json
           fail_ci_if_error: false
 
-  # The playground example end to end: build the package and the app once,
-  # then drive the built app (`vite preview`) with Playwright — see
-  # examples/playground/playwright.config.ts.
+  # Both example apps end to end: build the packages once, build the apps,
+  # then drive each built app (`vite preview`) with Playwright — the Lab
+  # (examples/playground, core only) and the zero editor showcase
+  # (examples/editor); see each app's playwright.config.ts.
   e2e:
     # Already ran on the PR, and not a required check, so the queue doesn't
     # wait for it. If you make this job required, drop this guard, or queued
@@ -127,11 +128,14 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Build playground
-        run: pnpm --filter playground-example build
+      - name: Build the example apps
+        run: pnpm --filter playground-example --filter editor-example build
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium firefox webkit
 
-      - name: E2E
+      - name: E2E (Lab)
         run: pnpm --filter playground-example e2e
+
+      - name: E2E (showcase)
+        run: pnpm --filter editor-example e2e

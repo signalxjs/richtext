@@ -69,6 +69,46 @@ importers:
         specifier: ^4.1.5
         version: 4.1.11(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.5)(vite@8.3.0(@types/node@26.6.2)(jiti@2.7.0))
 
+  examples/editor:
+    dependencies:
+      '@sigx/richtext':
+        specifier: workspace:*
+        version: link:../../packages/richtext
+      '@sigx/richtext-html':
+        specifier: workspace:*
+        version: link:../../packages/richtext-html
+      '@sigx/richtext-markdown':
+        specifier: workspace:*
+        version: link:../../packages/richtext-markdown
+      '@sigx/richtext-zero':
+        specifier: workspace:*
+        version: link:../../packages/richtext-zero
+      '@sigx/zero':
+        specifier: 'catalog:'
+        version: 0.15.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1)
+      '@sigx/zero-basic':
+        specifier: ^0.15.0
+        version: 0.15.0(@sigx/zero@0.15.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1))
+      '@sigx/zero-daisyui':
+        specifier: ^0.15.0
+        version: 0.15.0(@sigx/zero@0.15.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1))
+      sigx:
+        specifier: 'catalog:'
+        version: 1.0.1
+    devDependencies:
+      '@sigx/vite':
+        specifier: 'catalog:'
+        version: 1.0.1(@sigx/server-renderer@1.0.1(sigx@1.0.1))(sigx@1.0.1)(vite@8.3.0(@types/node@26.6.2)(jiti@2.7.0))
+      '@types/node':
+        specifier: ^26.6.2
+        version: 26.6.2
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vite:
+        specifier: ^8.0.3
+        version: 8.3.0(@types/node@26.6.2)(jiti@2.7.0)
+
   examples/playground:
     dependencies:
       '@sigx/richtext':
@@ -83,18 +123,6 @@ importers:
       '@sigx/richtext-shiki':
         specifier: workspace:*
         version: link:../../packages/richtext-shiki
-      '@sigx/richtext-zero':
-        specifier: workspace:*
-        version: link:../../packages/richtext-zero
-      '@sigx/zero':
-        specifier: 'catalog:'
-        version: 0.15.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1)
-      '@sigx/zero-basic':
-        specifier: ^0.15.0
-        version: 0.15.0(@sigx/zero@0.15.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1))
-      '@sigx/zero-daisyui':
-        specifier: ^0.15.0
-        version: 0.15.0(@sigx/zero@0.15.0(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1))(@sigx/runtime-dom@1.0.1(@sigx/reactivity@1.0.1)(@sigx/runtime-core@1.0.1(@sigx/reactivity@1.0.1)))(sigx@1.0.1))
       shiki:
         specifier: ^4.0.2
         version: 4.4.3

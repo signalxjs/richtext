@@ -201,7 +201,12 @@ on the web, inside a Lynx app (`@sigx/lynx` re-exports the same runtime) and in
 the terminal. Tests and examples may use `sigx`.
 
 To run an example: `pnpm build` first (it resolves the packages from `dist/`
-through the workspace links), then `pnpm --filter <example-name> dev`.
+through the workspace links), then `pnpm --filter <example-name> dev`. There
+are two: `playground-example` (`examples/playground`, the Richtext Lab: core
+only, no design system, port 5173) and `editor-example` (`examples/editor`,
+the `@sigx/richtext-zero` showcase with the zero skins, port 5174). Keep the
+Lab free of `@sigx/zero*`: a zero skin is one global stylesheet, and the Lab's
+dependency list is what shows the core needs none.
 
 ## Packages
 
@@ -261,8 +266,10 @@ the bare name — vitest matches aliases in order), to `exports` in
 `package.json` and `entry` in `vite.config.ts`, to `.size-limit.json`, and to
 `ENTRIES` in `scripts/verify-pack.js`. A new package is also added to
 `PACKAGES` in `scripts/publish.js` (dependency order) and
-`scripts/verify-pack.js`, to the playground's dependencies and `paths`, and
-to the issue-template dropdowns; the root `build` / `lint` scripts glob
+`scripts/verify-pack.js`, to an example app's dependencies and `paths` (the
+Lab's, `examples/playground`, for a core, format or plugin package; the
+showcase's, `examples/editor`, for a zero-facing one like
+`@sigx/richtext-zero`), and to the issue-template dropdowns; the root `build` / `lint` scripts glob
 `packages/*`.
 
 Source layout (`packages/richtext/src`):

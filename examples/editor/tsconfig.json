@@ -20,12 +20,12 @@
             "@sigx/richtext/dom": ["../../packages/richtext/src/dom/index.ts"],
             "@sigx/richtext/editor": ["../../packages/richtext/src/editor/index.ts"],
             "@sigx/richtext/editor/dom": ["../../packages/richtext/src/editor/dom/index.ts"],
-            "@sigx/richtext/testing": ["../../packages/richtext/src/testing/index.ts"],
             "@sigx/richtext-markdown": ["../../packages/richtext-markdown/src/index.ts"],
             "@sigx/richtext-markdown/editor": ["../../packages/richtext-markdown/src/editor/index.ts"],
             "@sigx/richtext-html": ["../../packages/richtext-html/src/index.ts"],
             "@sigx/richtext-html/editor": ["../../packages/richtext-html/src/editor/index.ts"],
-            "@sigx/richtext-shiki": ["../../packages/richtext-shiki/src/index.ts"]
+            "@sigx/richtext-zero": ["../../packages/richtext-zero/src/index.ts"],
+            "@sigx/richtext-zero/css": ["../../packages/richtext-zero/src/css.d.ts"]
         }
     },
     // `env.d.ts` from the package source declares `__DEV__`, the

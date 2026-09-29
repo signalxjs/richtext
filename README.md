@@ -31,7 +31,10 @@ Full guides, API reference and live examples → **<https://sigx.dev/richtext/>*
 | [`@sigx/richtext-shiki`](./packages/richtext-shiki) | Shiki highlighting as a plugin: `shikiPlugin()` / `createShikiHighlighter()` (the only package that imports `shiki`) |
 | [`@sigx/richtext-zero`](./packages/richtext-zero) | A finished editor drawn with `@sigx/zero` components, styled by whichever `@sigx/zero-*` design system the app loads: `ZeroRichTextEditor` with a toolbar, a floating toolbar, zero-drawn menus and link popover, and a rich / split / source view switch (the only package that imports `@sigx/zero`) |
 
-Examples: [`examples/playground`](./examples/playground) — the view, streaming, plugins, Shiki, the serializer and the editor side by side, with a Playwright suite.
+Examples, each with a Playwright suite:
+
+- [`examples/playground`](./examples/playground), the **Richtext Lab**: the core only, no design system. Token-by-token streaming with the final / open block states marked, an engine inspector, the Markdown / HTML / JSON serializers, the round trip and the core editor.
+- [`examples/editor`](./examples/editor), the **zero editor showcase**: `@sigx/richtext-zero` filling the page, with a picker for the published zero design systems and their light and dark themes.
 
 Consumers: [`@sigx/lynx-markdown`](https://sigx.dev/lynx/modules/markdown/overview/) renders and edits the same trees natively on Lynx; [`@sigx/ai`](https://sigx.dev/ai/) chat UI streams assistant messages through it.
 

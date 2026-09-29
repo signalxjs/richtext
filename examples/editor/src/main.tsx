@@ -1,7 +1,7 @@
 import { render } from 'sigx';
+import '@sigx/zero/css';
+import '@sigx/richtext-zero/css';
 import { App } from './App';
-import './styles.css';
-import './editor.css';
-import './lab.css';
+import './showcase.css';
 
 render(<App />, document.getElementById('app')!);

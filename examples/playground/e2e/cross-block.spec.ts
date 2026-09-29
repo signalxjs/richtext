@@ -15,7 +15,7 @@ const serialized = (page: Page) => page.getByTestId('serialized-md');
 async function openEditor(page: Page, markdown: string): Promise<void> {
     await page.goto('/');
     await page.getByTestId('source').fill(markdown);
-    await page.getByTestId('toggle-editor').check();
+    await page.getByTestId('tab-editor').click();
     await expect(editor(page)).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
 }

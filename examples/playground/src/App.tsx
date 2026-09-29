@@ -1,160 +1,71 @@
 /**
- * The playground: a source pane, the DOM view with its toggles, a streamed
- * copy of the view fed through `createTextStream`, and the serializer
- * output. One component, one reactive state object — the view re-renders
- * only the block a keystroke touches.
+ * The Richtext Lab: the core only, no design system. Three tabs share one
+ * frame — a control panel on the left, then source, view and inspector:
+ *
+ * - **Streaming** replays the source through `createTextStream` into the
+ *   Lab's own incremental engine and shows which blocks are final and which
+ *   are the open tail.
+ * - **Round-trip** renders the whole source and checks that serializing it
+ *   is stable.
+ * - **Core editor** is `RichTextEditor` with the reference `editor.css`,
+ *   two-way bound to the same source.
+ *
+ * The zero editor lives in `examples/editor`: a zero design system is one
+ * global stylesheet, and this page proves the core needs none.
  */
-import { component, computed, type JSXElement } from 'sigx';
-import { createTextStream, toJSON, type RenderChild, type RichTextPlugin, type Mention, type NodeProps } from '@sigx/richtext';
-import { RichTextView, highlightedCodeBlock, type DomComponents } from '@sigx/richtext/dom';
-import { createSlashPlugin } from '@sigx/richtext/editor';
-import { RichTextEditor, createDomMentionPlugin } from '@sigx/richtext/editor/dom';
-import { markdownFormat, mentionMarkdown, mentionPlugin, parseMarkdown, toMarkdown } from '@sigx/richtext-markdown';
-import { markdownPreset } from '@sigx/richtext-markdown/editor';
-import { htmlFormat, mentionHtml } from '@sigx/richtext-html';
-import { htmlPreset } from '@sigx/richtext-html/editor';
-import type { ZeroRichTextEditor } from '@sigx/richtext-zero';
-import { activateSkin, SKINS, type SkinId } from './zero-skins';
+import { component, computed } from 'sigx';
+import { createReparseEngine, createTextStream, type IncrementalEngine, type RichTextPlugin } from '@sigx/richtext';
+import { highlightedCodeBlock, type DomComponents } from '@sigx/richtext/dom';
+import { RichTextEditor } from '@sigx/richtext/editor/dom';
+import { markdownFormat, parseMarkdown, toMarkdown } from '@sigx/richtext-markdown';
+import { htmlFormat, parseHtml, toHtml } from '@sigx/richtext-html';
+import { renderControls } from './Controls';
+import { renderInspector } from './Inspector';
+import { renderSource } from './SourcePane';
+import { renderStreamedView, renderStaticView } from './StreamedView';
+import type { FormatId, Lab, LabState, Parsed, TabId } from './lab';
+import { editorPluginKey, editorPlugins, MentionChip, VIEW_PLUGINS } from './plugins';
+import { SAMPLES } from './samples';
 
-// Register the mention node with the AST and type its component slot: this
-// is the consumer-side half of the plugin contract (the package does not do
-// it itself so a plain tree stays exactly mdast).
-declare module '@sigx/richtext' {
-    interface PhrasingContentMap {
-        mention: Mention;
-    }
-    interface PluginComponents<E> {
-        mention(p: NodeProps<E, Mention>): RenderChild<E>;
-    }
-}
+/** Where the header's showcase link goes: the showcase's dev server unless the deploy says otherwise. */
+const SHOWCASE_URL: string = import.meta.env.VITE_SHOWCASE_URL ?? 'http://localhost:5174/';
 
-const SAMPLE = `# @sigx/richtext playground
-
-Markdown for **SignalX** — an *incremental* parser that keeps finalized blocks
-stable while the source grows, a serializer, and a DOM view styled through
-\`data-part\` attributes. Read the [docs](https://sigx.dev/markdown/) or ping
-@[Andy](u1) with questions.
-
-## Lists
-
-- Blocks keep their identity while streaming
-- Inline: *emphasis*, **strong**, ~~strike~~, \`code\`, <https://sigx.dev>
-  - Nested items work too
-  - And a [relative link](/guide) that stays in the app
-- Images: ![SignalX](/signalx-logo-150x119.png)
-
-1. Parse
-2. Render
-3. Serialize
-
-### Tasks
-
-- [x] Parser
-- [x] DOM view
-- [ ] Editor
-
-## Code
-
-\`\`\`ts
-export function greet(name: string): string {
-    const now = new Date();
-    return \`Hello, \${name}! It is \${now.toLocaleTimeString()}.\`;
-}
-\`\`\`
-
-> A blockquote, with **strong** text inside it.
-> It spans two lines.
-
-## Table
-
-| Entry | Runs on | Notes |
-|:------|:-------:|------:|
-| \`.\` | everywhere | parser, serializer, engine |
-| \`./dom\` | web | \`RichTextView\` |
-| \`./shiki\` | web | optional highlighting |
-
----
-
-That's it. Edit the source on the left; hit **Stream** to replay it token by token.
-`;
-
-// Plugin arrays are captured by the view's incremental engine: keep both
-// identities stable (a new array re-creates the engine and re-parses).
-const NO_PLUGINS: readonly RichTextPlugin[] = [];
-const WITH_MENTION: readonly RichTextPlugin[] = [mentionPlugin];
-
-/** Who `@` can mention in the editor. */
-const PEOPLE = [
-    { id: 'u1', label: 'Andy' },
-    { id: 'u2', label: 'Bea' },
-    { id: 'u3', label: 'Chris' },
-    { id: 'u4', label: 'Dana' }
+const FORMATS = { markdown: markdownFormat, html: htmlFormat };
+const TABS: readonly { id: TabId; label: string }[] = [
+    { id: 'streaming', label: 'Streaming' },
+    { id: 'roundtrip', label: 'Round-trip' },
+    { id: 'editor', label: 'Core editor' }
 ];
-
-/** The editor's plugins: the markdown preset (input rules, clipboard), the HTML preset (`text/html` on copy), the mention syntax + `@` trigger + chip, and `/` block commands. Captured at mount. */
-const EDITOR_PLUGINS: readonly RichTextPlugin[] = [
-    markdownPreset,
-    htmlPreset,
-    createDomMentionPlugin({
-        onQuery: (q) => PEOPLE.filter((p) => p.label.toLowerCase().startsWith(q.toLowerCase())),
-        formats: { markdown: mentionMarkdown, html: mentionHtml }
-    }),
-    createSlashPlugin()
-];
-
-/** The `mention` slot: a plain function, called by the render engine with the node. */
-const MentionChip = ({ node }: NodeProps<JSXElement, Mention>): JSXElement => (
-    <span data-scope="richtext" data-part="mention" title={node.id}>
-        @{node.label}
-    </span>
-);
 
 type CodeSlot = DomComponents['code'];
 
 export const App = component(({ signal, onUnmounted }) => {
-    const state = signal({
-        source: SAMPLE,
+    const state = signal<LabState>({
+        tab: 'streaming',
+        sample: 'kitchen-sink',
+        format: 'markdown',
+        source: SAMPLES[0].source,
         shiki: false,
         shikiReady: false,
         mention: true,
+        htmlPaste: true,
         classPrefix: false,
+        blockStates: true,
         dark: false,
         charsPerTick: 3,
         tickMs: 16,
-        streaming: false,
-        lastLink: '',
-        editor: false,
-        /** The @sigx/richtext-zero editor, and the zero design system it wears. */
-        zero: false,
-        skin: 'basic' as SkinId,
-        skinReady: '',
-        zeroReady: false
+        status: 'idle',
+        streamTotal: SAMPLES[0].source.length,
+        inspector: 'engine',
+        lastLink: ''
     });
 
-    // ---- The zero editor: loaded on first toggle, like Shiki ----
-    let ZeroEditor: typeof ZeroRichTextEditor | null = null;
-    let zeroLoading: Promise<void> | null = null;
-    const loadZero = (): Promise<void> => {
-        zeroLoading ??= import('./zero-editor').then((m) => {
-            ZeroEditor = m.ZeroRichTextEditor;
-            state.zeroReady = true;
-        });
-        return zeroLoading;
-    };
-
-    const skin = () => SKINS.find((s) => s.id === state.skin) ?? SKINS[0];
-    const setSkin = (id: SkinId): void => {
-        state.skin = id;
-        const next = skin();
-        void activateSkin(next).then(() => {
-            if (state.skin === next.id) state.skinReady = next.id;
-        });
-    };
+    const format = computed(() => FORMATS[state.format]);
+    const plugins = computed(() => (state.mention ? VIEW_PLUGINS.on : VIEW_PLUGINS.off));
 
     // ---- Shiki: loaded on first toggle so the initial bundle stays small ----
     let shikiCode: CodeSlot | null = null;
     let shikiLoading: Promise<void> | null = null;
-
     const loadShiki = (): Promise<void> => {
         shikiLoading ??= import('@sigx/richtext-shiki').then(({ createShikiHighlighter }) => {
             shikiCode = highlightedCodeBlock(createShikiHighlighter());
@@ -163,32 +74,18 @@ export const App = component(({ signal, onUnmounted }) => {
         return shikiLoading;
     };
 
-    const toggleShiki = (): void => {
-        state.shiki = !state.shiki;
-        if (state.shiki) void loadShiki();
-    };
-
-    const toggleDark = (): void => {
-        state.dark = !state.dark;
-        document.documentElement.dataset.theme = state.dark ? 'dark' : 'light';
-    };
-
-    // ---- View inputs ----
-    const plugins = computed<readonly RichTextPlugin[]>(() => (state.mention ? WITH_MENTION : NO_PLUGINS));
-
     const components = computed<Partial<DomComponents>>(() => {
         const slots: Partial<DomComponents> = { mention: MentionChip };
         if (state.shiki && state.shikiReady && shikiCode) slots.code = shikiCode;
         return slots;
     });
 
-    const onLink = (url: string): void => {
-        state.lastLink = url;
-    };
-
     // ---- Streaming: replay the source through createTextStream ----
     const stream = createTextStream({ flushIntervalMs: 16 });
     let timer: ReturnType<typeof setInterval> | null = null;
+    /** The text being streamed (the source when the stream started) and how much of it went out. */
+    let text = '';
+    let cursor = 0;
 
     const clearTimer = (): void => {
         if (timer !== null) {
@@ -197,243 +94,225 @@ export const App = component(({ signal, onUnmounted }) => {
         }
     };
 
-    const finishStream = (): void => {
+    const tick = (): void => {
+        const step = Math.max(1, Math.floor(state.charsPerTick) || 1);
+        const next = Math.min(text.length, cursor + step);
+        stream.append(text.slice(cursor, next));
+        cursor = next;
+        if (cursor >= text.length) {
+            clearTimer();
+            stream.done();
+            state.status = 'done';
+        }
+    };
+
+    const run = (): void => {
         clearTimer();
-        stream.done();
-        state.streaming = false;
+        state.status = 'streaming';
+        timer = setInterval(tick, Math.max(1, Math.floor(state.tickMs) || 1));
     };
 
     const startStream = (): void => {
-        clearTimer();
         stream.reset();
-        const text = state.source;
-        const step = Math.max(1, Math.floor(state.charsPerTick) || 1);
-        const every = Math.max(1, Math.floor(state.tickMs) || 1);
-        let cursor = 0;
-        state.streaming = true;
-        timer = setInterval(() => {
-            const next = Math.min(text.length, cursor + step);
-            stream.append(text.slice(cursor, next));
-            cursor = next;
-            if (cursor >= text.length) finishStream();
-        }, every);
+        text = state.source;
+        cursor = 0;
+        state.streamTotal = text.length;
+        run();
     };
 
-    const streamStatus = computed(() => (state.streaming ? 'streaming' : stream.finished.value ? 'done' : 'idle'));
+    /** Back to idle with nothing streamed: the source, its format or the plugins changed under the stream. */
+    const stopStream = (): void => {
+        clearTimer();
+        stream.reset();
+        cursor = 0;
+        state.status = 'idle';
+    };
 
     onUnmounted(clearTimer);
 
-    // ---- Serializer output ----
-    const root = computed(() => parseMarkdown(state.source, { plugins: plugins.value }));
-    const serializedMarkdown = computed(() => toMarkdown(root.value, { plugins: plugins.value }));
-    const serializedJson = computed(() => JSON.stringify(toJSON(root.value), null, 2));
+    // ---- The Lab's own engine: the view renders the tree it produces, so the inspector sees what the view sees ----
+    let engine: IncrementalEngine | null = null;
+    let engineFormat = format.value;
+    let enginePlugins: readonly RichTextPlugin[] = plugins.value;
+    const parsed = computed<Parsed>(() => {
+        const fmt = format.value;
+        const pl = plugins.value;
+        const src = stream.value.value;
+        if (!engine || fmt !== engineFormat || pl !== enginePlugins) {
+            engineFormat = fmt;
+            enginePlugins = pl;
+            engine = fmt.createIncrementalEngine?.({ plugins: pl }) ?? createReparseEngine((s) => fmt.parse(s, { plugins: pl }));
+        }
+        const t0 = performance.now();
+        const root = engine.parse(src);
+        const ms = performance.now() - t0;
+        return { root, ms, ...engine.inspect(), incremental: !!fmt.createIncrementalEngine };
+    });
 
-    const number = (e: Event): number => Number((e.target as HTMLInputElement).value);
+    const full = computed(() => format.value.parse(state.source, { plugins: plugins.value }));
+
+    /** Convert the source between the two formats through the tree. */
+    const convert = (source: string, from: FormatId, to: FormatId): string => {
+        if (from === to) return source;
+        const opts = { plugins: plugins.value };
+        return to === 'html' ? toHtml(parseMarkdown(source, opts), opts) : toMarkdown(parseHtml(source, opts), opts);
+    };
+
+    const lab: Lab = {
+        state,
+        format: () => format.value,
+        plugins: () => plugins.value,
+        components: () => components.value,
+        classPrefix: () => (state.classPrefix ? 'rt' : undefined),
+        streamed: () => stream.value.value,
+        parsed: () => parsed.value,
+        full: () => full.value,
+        toggleStream: () => {
+            if (state.status === 'streaming') {
+                clearTimer();
+                state.status = 'paused';
+            } else if (state.status === 'paused') {
+                run();
+            } else {
+                startStream();
+            }
+        },
+        restartStream: startStream,
+        pickSample: (id) => {
+            stopStream();
+            state.sample = id;
+            const sample = SAMPLES.find((s) => s.id === id) ?? SAMPLES[0];
+            state.source = convert(sample.source, 'markdown', state.format);
+        },
+        pickFormat: (id) => {
+            if (id === state.format) return;
+            stopStream();
+            state.source = convert(state.source, state.format, id);
+            state.format = id;
+        },
+        setTab: (id) => {
+            state.tab = id;
+            // The engine tab only exists while streaming; the other tabs open on the markdown out.
+            if (id !== 'streaming' && state.inspector === 'engine') state.inspector = 'markdown';
+            if (id === 'streaming') state.inspector = 'engine';
+        },
+        toggleShiki: () => {
+            state.shiki = !state.shiki;
+            if (state.shiki) void loadShiki();
+        },
+        toggleDark: () => {
+            state.dark = !state.dark;
+            document.documentElement.dataset.theme = state.dark ? 'dark' : 'light';
+        },
+        setTickMs: (ms) => {
+            state.tickMs = ms;
+            if (state.status === 'streaming') run();
+        },
+        onLink: (url) => {
+            state.lastLink = url;
+        }
+    };
+
+    const editorKey = computed(() => `${state.format}:${editorPluginKey(state.mention, state.htmlPaste)}`);
+
+    const renderEditor = () => {
+        const key = editorKey.value;
+        const fmt = format.value;
+        return (
+            <section class="col col-wide" key={key}>
+                <header class="col-head">
+                    <h2>Core editor</h2>
+                    <span class="chip">{fmt.id === 'html' ? 'HTML' : 'Markdown'}</span>
+                    <span class="col-note">reference editor.css</span>
+                </header>
+                <div class="col-body">
+                    {/* Two-way bound to the same source the other panes render. Remounted when its format or plugins change: it captures both. */}
+                    <RichTextEditor
+                        id="editor"
+                        format={fmt}
+                        formats={[fmt === markdownFormat ? htmlFormat : markdownFormat]}
+                        model:source={[state, 'source']}
+                        plugins={editorPlugins(key.split(':')[1])}
+                        components={{ mention: MentionChip }}
+                        placeholder="Write, or type / for blocks and @ to mention…"
+                        floatingToolbar
+                    />
+                </div>
+            </section>
+        );
+    };
+
+    const renderColumns = () => {
+        switch (state.tab) {
+            case 'streaming':
+                return [renderSource(lab), renderStreamedView(lab), renderInspector(lab)];
+            case 'roundtrip':
+                return [renderSource(lab), renderStaticView(lab), renderInspector(lab)];
+            case 'editor':
+                return [renderEditor(), renderStaticView(lab), renderInspector(lab)];
+        }
+    };
+
+    const statusLine = () => {
+        switch (state.status) {
+            case 'streaming':
+                return `Streaming · ${state.charsPerTick} chars every ${state.tickMs} ms`;
+            case 'paused':
+                return 'Paused';
+            case 'done':
+                return 'Stream done';
+            default:
+                return 'Idle';
+        }
+    };
 
     return () => (
-        <div class="app">
-            <header class="toolbar">
-                <h1>@sigx/richtext</h1>
-                <label>
-                    <input type="checkbox" data-testid="toggle-shiki" checked={state.shiki} onChange={toggleShiki} />
-                    Shiki
-                </label>
-                <label>
-                    <input
-                        type="checkbox"
-                        data-testid="toggle-mention"
-                        checked={state.mention}
-                        onChange={() => {
-                            state.mention = !state.mention;
-                        }}
-                    />
-                    Mention plugin
-                </label>
-                <label>
-                    <input
-                        type="checkbox"
-                        data-testid="toggle-class-prefix"
-                        checked={state.classPrefix}
-                        onChange={() => {
-                            state.classPrefix = !state.classPrefix;
-                        }}
-                    />
-                    classPrefix
-                </label>
-                <label>
-                    <input type="checkbox" data-testid="toggle-dark" checked={state.dark} onChange={toggleDark} />
-                    Dark
-                </label>
-                <label>
-                    <input
-                        type="checkbox"
-                        data-testid="toggle-editor"
-                        checked={state.editor}
-                        onChange={() => {
-                            state.editor = !state.editor;
-                        }}
-                    />
-                    Editor
-                </label>
-                <label>
-                    <input
-                        type="checkbox"
-                        data-testid="toggle-zero"
-                        checked={state.zero}
-                        onChange={() => {
-                            state.zero = !state.zero;
-                            if (state.zero) {
-                                void loadZero();
-                                setSkin(state.skin);
-                            }
-                        }}
-                    />
-                    Zero editor
-                </label>
-                {state.zero ? (
-                    <label>
-                        Skin
-                        <select
-                            data-testid="zero-skin"
-                            value={state.skin}
-                            onChange={(e) => setSkin((e.target as HTMLSelectElement).value as SkinId)}
+        <div class="lab" data-tab={state.tab}>
+            <header class="lab-bar">
+                <span class="wordmark">@sigx/richtext</span>
+                <span class="badge">Lab</span>
+                <nav class="tabs" role="tablist" aria-label="Lab views">
+                    {TABS.map((t) => (
+                        <button
+                            key={t.id}
+                            type="button"
+                            role="tab"
+                            data-testid={`tab-${t.id}`}
+                            aria-selected={String(state.tab === t.id)}
+                            onClick={() => lab.setTab(t.id)}
                         >
-                            {SKINS.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                ) : null}
-                <label>
-                    chars/tick
-                    <input
-                        type="number"
-                        min="1"
-                        data-testid="chars-per-tick"
-                        value={state.charsPerTick}
-                        onInput={(e) => {
-                            state.charsPerTick = number(e);
-                        }}
-                    />
-                </label>
-                <label>
-                    tick ms
-                    <input
-                        type="number"
-                        min="1"
-                        data-testid="tick-ms"
-                        value={state.tickMs}
-                        onInput={(e) => {
-                            state.tickMs = number(e);
-                        }}
-                    />
-                </label>
-                <button type="button" data-testid="stream-start" onClick={startStream}>
-                    Stream
+                            {t.label}
+                        </button>
+                    ))}
+                </nav>
+                <span class="spacer" />
+                <span class="note">Core only: no design system loaded</span>
+                <button type="button" class="ghost" data-testid="toggle-dark" aria-pressed={String(state.dark)} onClick={lab.toggleDark}>
+                    {state.dark ? 'Dark' : 'Light'}
                 </button>
-                <button type="button" data-testid="stream-stop" disabled={!state.streaming} onClick={finishStream}>
-                    {state.streaming ? 'Stop' : 'Done'}
-                </button>
-                <span class="status" data-testid="stream-status">
-                    {streamStatus.value}
-                </span>
-                <span class="last-link">
-                    last link: <span data-testid="last-link">{state.lastLink}</span>
-                </span>
+                <a class="ghost" href={SHOWCASE_URL}>
+                    Zero editor showcase →
+                </a>
             </header>
 
-            <main class="panes">
-                {state.zero && state.zeroReady && ZeroEditor ? (
-                    <section class="pane pane-zero" data-theme={state.dark ? skin().themes.dark : skin().themes.light} data-skin={state.skinReady}>
-                        <h2>@sigx/richtext-zero</h2>
-                        {/* The same source again: the zero editor, the view panes and the serializer stay in step. */}
-                        <ZeroEditor
-                            id="zero-editor"
-                            title="Playground"
-                            format={markdownFormat}
-                            formats={[markdownFormat, htmlFormat]}
-                            model:source={[state, 'source']}
-                            plugins={EDITOR_PLUGINS}
-                            placeholder="Write, or type / for blocks and @ to mention…"
-                        />
-                    </section>
-                ) : null}
-                {state.editor ? (
-                    <section class="pane pane-editor">
-                        <h2>Editor</h2>
-                        <div class="body">
-                            {/* Two-way bound to the same source the panes on the right render. */}
-                            <RichTextEditor
-                                id="editor"
-                                format={markdownFormat}
-                                formats={[htmlFormat]}
-                                model:source={[state, 'source']}
-                                plugins={EDITOR_PLUGINS}
-                                components={{ mention: MentionChip }}
-                                placeholder="Write, or type / for blocks and @ to mention…"
-                                floatingToolbar
-                            />
-                        </div>
-                    </section>
-                ) : (
-                    <section class="pane">
-                        <h2>Source</h2>
-                        <textarea
-                            data-testid="source"
-                            aria-label="Markdown source"
-                            spellCheck={false}
-                            value={state.source}
-                            onInput={(e) => {
-                                state.source = (e.target as HTMLTextAreaElement).value;
-                            }}
-                        />
-                    </section>
-                )}
+            <div class="lab-main">
+                {renderControls(lab)}
+                <main class="cols">{renderColumns()}</main>
+            </div>
 
-                <section class="pane">
-                    <h2>View</h2>
-                    <div class="body">
-                        <RichTextView format={markdownFormat}
-                            id="static"
-                            value={state.source}
-                            plugins={plugins.value}
-                            components={components.value}
-                            onLink={onLink}
-                            classPrefix={state.classPrefix ? 'md' : undefined}
-                        />
-                    </div>
-                </section>
-
-                <section class="pane">
-                    <h2>Streamed</h2>
-                    <div class="body">
-                        <RichTextView format={markdownFormat}
-                            id="streamed"
-                            value={stream.value.value}
-                            plugins={plugins.value}
-                            components={components.value}
-                            onLink={onLink}
-                            classPrefix={state.classPrefix ? 'md' : undefined}
-                        />
-                    </div>
-                </section>
-
-                <section class="pane">
-                    <h2>Serialized</h2>
-                    <div class="body">
-                        <h3>toMarkdown(parseMarkdown(source))</h3>
-                        <pre class="out" data-testid="serialized-md">
-                            {serializedMarkdown.value}
-                        </pre>
-                        <h3>toJSON(parseMarkdown(source))</h3>
-                        <pre class="out" data-testid="serialized-json">
-                            {serializedJson.value}
-                        </pre>
-                    </div>
-                </section>
-            </main>
+            <footer class="lab-foot">
+                <span class="dot" data-status={state.status} />
+                <span data-testid="stream-status" class="sr-only">
+                    {state.status}
+                </span>
+                <span>{statusLine()}</span>
+                <span class="mono">{parsed.value.incremental ? 'createIncrementalEngine' : 'createReparseEngine'}</span>
+                <span class="mono muted">
+                    last link: <span data-testid="last-link">{state.lastLink}</span>
+                </span>
+                <span class="spacer" />
+                <span class="mono muted">@sigx/richtext · @sigx/richtext-markdown · @sigx/richtext-html · @sigx/richtext-shiki</span>
+            </footer>
         </div>
     );
 });

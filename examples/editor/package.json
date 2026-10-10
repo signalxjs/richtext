@@ -16,8 +16,8 @@
         "@sigx/richtext-markdown": "workspace:*",
         "@sigx/richtext-zero": "workspace:*",
         "@sigx/zero": "catalog:",
-        "@sigx/zero-basic": "^0.15.0",
-        "@sigx/zero-daisyui": "^0.15.0",
+        "@sigx/zero-basic": "^0.17.0",
+        "@sigx/zero-daisyui": "^0.17.0",
         "sigx": "catalog:"
     },
     "devDependencies": {
